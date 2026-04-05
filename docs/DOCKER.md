@@ -22,8 +22,21 @@ Levantar un entorno reproducible para backend usando contenedores:
 
 ### `postgres`
 - Imagen: `postgres:16-alpine`
-- Puerto host: `5432`
+- Puerto host: `5433` (interno del contenedor: `5432`)
 - Volumen persistente: `stockerr_pg_data`
+- Inicialización automática con backup: `docker/postgres/init/01_backup_stockerrbd.sql`
+
+## Inicialización de base de datos desde backup
+
+El servicio PostgreSQL ejecuta automáticamente los scripts ubicados en:
+
+`/docker-entrypoint-initdb.d`
+
+En este proyecto se monta:
+
+`./docker/postgres/init:/docker-entrypoint-initdb.d:ro`
+
+Por eso el backup SQL se importa en el primer arranque del contenedor (cuando el volumen de datos está vacío).
 
 ## Comandos
 
@@ -57,6 +70,12 @@ docker compose down
 docker compose down -v
 ```
 
+Luego, para recrear e importar nuevamente el backup:
+
+```bash
+docker compose up --build
+```
+
 ## Prueba rápida de integración
 
 1. Login por gateway:
@@ -79,3 +98,23 @@ curl http://localhost:3000/api/auth/verify \
 - `.env` reales no se versionan.
 - Para producción, mover secretos a gestor seguro y no dejar credenciales por defecto.
 - El servicio auth está preparado para migrar de repositorio en memoria a persistencia completa en siguientes iteraciones.
+
+## Solución de problemas
+
+### 1) Error de puerto PostgreSQL ocupado
+
+Si `5432` está ocupado por otro servicio local, este proyecto expone PostgreSQL en `5433` del host.
+
+### 2) El backup no se reimporta
+
+La importación de scripts ocurre solo en inicialización. Ejecutar:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+### 3) Compatibilidad del dump
+
+El backup recibido fue generado en PostgreSQL 18 y se ajustó para ejecutarse en imagen PostgreSQL 16 del proyecto.
+También se usa el usuario `postgres` en el contenedor para mantener compatibilidad con sentencias `OWNER TO postgres` presentes en el dump.

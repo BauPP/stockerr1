@@ -12,7 +12,7 @@ Implementación backend para **MS-01 Servicio de Autenticación y Sesión** con 
 ## Requisitos
 
 - Docker Desktop (o Docker Engine + Docker Compose)
-- Puertos libres: `3000`, `3002`, `5432`
+- Puertos libres: `3000`, `3002`, `5433`
 
 ## Levantar entorno con Docker
 
@@ -21,6 +21,10 @@ Desde la raíz del repositorio:
 ```bash
 docker compose up --build
 ```
+
+La base de datos se inicializa automáticamente con el backup SQL ubicado en:
+
+`docker/postgres/init/01_backup_stockerrbd.sql`
 
 ## Verificar funcionamiento
 
@@ -50,6 +54,8 @@ Para eliminar también volumen de base de datos:
 ```bash
 docker compose down -v
 ```
+
+> Importante: PostgreSQL solo ejecuta los scripts de `docker-entrypoint-initdb.d` cuando el volumen está vacío. Si querés reimportar el backup, usá `docker compose down -v` y luego `docker compose up --build`.
 
 ## Notas de alcance
 
