@@ -1,0 +1,48 @@
+.layout {
+  display: flex;
+  height: 100vh;
+  font-family: Arial;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px;
+  background: #1e293b;
+  color: white;
+  padding: 20px;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar li {
+  margin: 15px 0;
+  cursor: pointer;
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* NAVBAR */
+.navbar {
+  background: #f1f5f9;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.nav-right {
+  display: flex;
+  gap: 15px;
+}
+
+/* CONTENT */
+.content {
+  padding: 20px;
+}

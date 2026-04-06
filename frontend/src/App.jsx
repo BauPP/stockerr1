@@ -3,6 +3,10 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Login from './pages/Login/login'
 
+import Layout from './components/Layout'
+
+
+
 // Redirige según estado de sesión al entrar a "/"
 // Si ya está logueado → dashboard
 function HomeRedirect() {
@@ -29,6 +33,16 @@ function PrivateRoute({ children }) {
 
 // Placeholder hasta que se implemente el dashboard real
 function Dashboard() {
+
+  return (
+    <Layout>
+      <h1>Dashboard</h1>
+      <p>Contenido inicial</p>
+    </Layout>
+  )
+}
+
+
   const { user, logout } = useAuth()
   return (
     <div style={{ padding: '2rem', fontFamily: 'Roboto, sans-serif' }}>

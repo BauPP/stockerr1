@@ -33,9 +33,22 @@ export default function Login() {
 
     setIsLoading(true)
     try {
+
+      const response = await loginRequest(formData.nombre_usuario.trim(), formData.contrasena)
+
+
+login(response.data)
+
+
+navigate(
+  response.data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard',
+  { replace: true }
+)
+
       const data = await loginRequest(formData.nombre_usuario.trim(), formData.contrasena)
       login(data)
       navigate(data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
+
     } catch (err) {
       const message = err.message || 'Error desconocido.'
       setErrorType(message.includes('bloqueada') ? 'warning' : 'error')
