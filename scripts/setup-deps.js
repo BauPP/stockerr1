@@ -6,6 +6,7 @@ const rootDir = path.resolve(__dirname, '..');
 const targets = [
   { name: 'Raíz del proyecto', dir: rootDir },
   { name: 'Auth Service', dir: path.join(rootDir, 'services', 'auth-service') },
+  { name: 'User Service', dir: path.join(rootDir, 'services', 'user-service') },
   { name: 'API Gateway', dir: path.join(rootDir, 'api-gateway') },
 ];
 
