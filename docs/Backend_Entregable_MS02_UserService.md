@@ -108,3 +108,10 @@ npm --prefix services/user-service test
 - [x] DELETE lógico sin borrado físico.
 - [x] Validación de negocio para evitar auto-deshabilitación de admin.
 - [x] Suite de pruebas de integración para flujo MS-02.
+
+---
+
+## 8. Documentación complementaria
+
+- `docs/QA_Guia_Verificacion_MS02_UserService.md`
+- `docs/Frontend_Integracion_MS02_UserService.md`
