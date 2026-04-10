@@ -1242,6 +1242,12 @@ ALTER TABLE ONLY public.roles
 ALTER TABLE ONLY public.categorias
     ADD CONSTRAINT unique_nombre_categoria UNIQUE (nombre_categoria);
 
+--
+-- Name: idx_categorias_nombre_categoria_lower; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX idx_categorias_nombre_categoria_lower ON public.categorias USING btree (lower((nombre_categoria)::text));
+
 
 --
 -- TOC entry 5022 (class 2606 OID 35591)

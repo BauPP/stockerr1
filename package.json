@@ -1,7 +1,7 @@
 {
   "scripts": {
     "setup:deps": "node scripts/setup-deps.js",
-    "verify:all": "npm --prefix services/auth-service test && npm --prefix api-gateway test"
+    "verify:all": "npm --prefix services/auth-service test && npm --prefix services/category-service test && npm --prefix api-gateway test"
   },
   "dependencies": {
     "cors": "^2.8.6",
