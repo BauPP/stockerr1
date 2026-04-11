@@ -34,8 +34,8 @@ export default function Login() {
     setIsLoading(true)
     try {
       const data = await loginRequest(formData.nombre_usuario.trim(), formData.contrasena)
-      login(data)
-      navigate(data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
+      login(data.data)
+      navigate(data.data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
     } catch (err) {
       const message = err.message || 'Error desconocido.'
       setErrorType(message.includes('bloqueada') ? 'warning' : 'error')
@@ -49,7 +49,6 @@ export default function Login() {
 
   return (
     <>
-      {/* Header superior */}
       <header className="login-topbar">
         <div className="login-topbar-logo">
           <img src={logo} alt="Stockerr" />
@@ -60,10 +59,8 @@ export default function Login() {
         </div>
       </header>
 
-     
       <div className="login-page">
         <div className="login-card">
-
           <div className="login-header">
             <h1 className="login-title">Iniciar sesión</h1>
             <p className="login-subtitle">Ingresa tus credenciales para acceder al sistema</p>
@@ -156,7 +153,6 @@ export default function Login() {
               {isLoading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
-
         </div>
       </div>
     </>

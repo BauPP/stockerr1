@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Login from './pages/Login/login'
+import Layout from './components/Layout'
 
 // Redirige según estado de sesión al entrar a "/"
 // Si ya está logueado → dashboard
@@ -29,20 +30,14 @@ function PrivateRoute({ children }) {
 
 // Placeholder hasta que se implemente el dashboard real
 function Dashboard() {
-  const { user, logout } = useAuth()
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Roboto, sans-serif' }}>
-      <h1>Dashboard — Bienvenido, {user?.nombre}</h1>
-      <p>Rol: <strong>{user?.rol}</strong></p>
-      <button
-        onClick={logout}
-        style={{ marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' }}
-      >
-        Cerrar sesión
-      </button>
-    </div>
+    <Layout>
+      <h1>Dashboard</h1>
+      <p>Contenido inicial</p>
+    </Layout>
   )
 }
+
 
 export default function App() {
   return (

@@ -5,10 +5,13 @@ require('dotenv').config();
 const { buildServiceConfig } = require('./config/services');
 const { createAuthMiddleware } = require('./middlewares/auth.middleware');
 const { createAuthRoutes } = require('./routes/auth.routes');
+const { createCategoryRoutes } = require('./routes/category.routes');
+
 
 function createApp(options = {}) {
   const app = express();
   const config = buildServiceConfig(options);
+  const fetchImpl = options.fetchImpl || fetch;
   const authMiddleware = createAuthMiddleware({
     authServiceUrl: config.authServiceUrl,
     fetchImpl: options.fetchImpl || fetch,
@@ -22,6 +25,14 @@ function createApp(options = {}) {
   });
 
   app.use('/api/auth', createAuthRoutes({ authServiceUrl: config.authServiceUrl }));
+  app.use(
+    '/api/categories',
+    createCategoryRoutes({
+      categoryServiceUrl: config.categoryServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
 
   app.get('/api/protected/ping', authMiddleware, (req, res) => {
     res.json({
