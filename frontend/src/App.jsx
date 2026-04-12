@@ -2,9 +2,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Login from './pages/Login/login'
+import Layout from './components/Layout'
+import Categories from './pages/Categories/Categories.jsx'
+import UsersPage from './pages/Users/UsersPage.jsx'
 
 // Redirige según estado de sesión al entrar a "/"
-// Si ya está logueado → dashboard
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return null
@@ -27,42 +29,58 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
-// Placeholder hasta que se implemente el dashboard real
+// Solo Administrador — Operador no puede ver gestión de usuarios
+function AdminRoute({ children }) {
+  const { isAuthenticated, isLoading, user } = useAuth()
+  if (isLoading) return null
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.rol !== 'Administrador') return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function Dashboard() {
-  const { user, logout } = useAuth()
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Roboto, sans-serif' }}>
-      <h1>Dashboard — Bienvenido, {user?.nombre}</h1>
-      <p>Rol: <strong>{user?.rol}</strong></p>
-      <button
-        onClick={logout}
-        style={{ marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' }}
-      >
-        Cerrar sesión
-      </button>
-    </div>
+    <Layout>
+      <h1>Dashboard</h1>
+      <p>Contenido inicial</p>
+    </Layout>
   )
 }
 
 export default function App() {
   return (
     <Routes>
-      {/* redirección  según sesión */}
       <Route path="/" element={<HomeRedirect />} />
 
-      {/* no accesible si ya hay sesión */}
       <Route path="/login" element={
         <PublicRoute>
           <Login />
         </PublicRoute>
       } />
 
-      {/* se requiere sesión activa */}
       <Route path="/dashboard/*" element={
         <PrivateRoute>
           <Dashboard />
         </PrivateRoute>
       } />
+
+      <Route path="/categorias" element={
+        <PrivateRoute>
+          <Layout>
+            <Categories />
+          </Layout>
+        </PrivateRoute>
+      } />
+
+      {/* MS-02 — solo Administrador */}
+      <Route path="/usuarios" element={
+        <AdminRoute>
+          <Layout>
+            <UsersPage />
+          </Layout>
+        </AdminRoute>
+      } />
+
     </Routes>
   )
 }
