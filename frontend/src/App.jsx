@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import Categories from './pages/Categories/Categories.jsx'
 import UsersPage from './pages/Users/UsersPage.jsx'
 
+
 // Redirige según estado de sesión al entrar a "/"
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -46,6 +47,7 @@ function Dashboard() {
     </Layout>
   )
 }
+
 
 export default function App() {
   return (
