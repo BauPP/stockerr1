@@ -3,9 +3,11 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Login from './pages/Login/login'
 import Layout from './components/Layout'
+import Categories from './pages/Categories/Categories.jsx'
+import UsersPage from './pages/Users/UsersPage.jsx'
+
 
 // Redirige según estado de sesión al entrar a "/"
-// Si ya está logueado → dashboard
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return null
@@ -28,7 +30,15 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
-// Placeholder hasta que se implemente el dashboard real
+// Solo Administrador — Operador no puede ver gestión de usuarios
+function AdminRoute({ children }) {
+  const { isAuthenticated, isLoading, user } = useAuth()
+  if (isLoading) return null
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.rol !== 'Administrador') return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function Dashboard() {
   return (
     <Layout>
@@ -42,22 +52,37 @@ function Dashboard() {
 export default function App() {
   return (
     <Routes>
-      {/* redirección  según sesión */}
       <Route path="/" element={<HomeRedirect />} />
 
-      {/* no accesible si ya hay sesión */}
       <Route path="/login" element={
         <PublicRoute>
           <Login />
         </PublicRoute>
       } />
 
-      {/* se requiere sesión activa */}
       <Route path="/dashboard/*" element={
         <PrivateRoute>
           <Dashboard />
         </PrivateRoute>
       } />
+
+      <Route path="/categorias" element={
+        <PrivateRoute>
+          <Layout>
+            <Categories />
+          </Layout>
+        </PrivateRoute>
+      } />
+
+      {/* MS-02 — solo Administrador */}
+      <Route path="/usuarios" element={
+        <AdminRoute>
+          <Layout>
+            <UsersPage />
+          </Layout>
+        </AdminRoute>
+      } />
+
     </Routes>
   )
 }
