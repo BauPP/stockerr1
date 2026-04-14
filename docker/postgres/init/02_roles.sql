@@ -1,3 +1,3 @@
-INSERT INTO roles (id_rol, nombre_rol, descripcion) VALUES
-(1, 'ADMIN', 'Administrador'),
-(2, 'OPERADOR', 'Operador');
+INSERT INTO roles (nombre_rol, descripcion) VALUES
+('ADMIN', 'Administrador del sistema'),
+('OPERADOR', 'Usuario operativo');
