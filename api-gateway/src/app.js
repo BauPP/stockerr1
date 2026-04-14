@@ -1,30 +1,32 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-
+ 
 const { buildServiceConfig } = require('./config/services');
 const { createAuthMiddleware } = require('./middlewares/auth.middleware');
 const { createAuthRoutes } = require('./routes/auth.routes');
 const { createCategoryRoutes } = require('./routes/category.routes');
-
-
+const { createUserRoutes } = require('./routes/user.routes');
+ 
 function createApp(options = {}) {
   const app = express();
   const config = buildServiceConfig(options);
   const fetchImpl = options.fetchImpl || fetch;
+ 
   const authMiddleware = createAuthMiddleware({
     authServiceUrl: config.authServiceUrl,
-    fetchImpl: options.fetchImpl || fetch,
+    fetchImpl,
   });
-
+ 
   app.use(cors());
   app.use(express.json());
-
+ 
   app.get('/', (_req, res) => {
     res.json({ success: true, message: 'API Gateway activo' });
   });
-
+ 
   app.use('/api/auth', createAuthRoutes({ authServiceUrl: config.authServiceUrl }));
+ 
   app.use(
     '/api/categories',
     createCategoryRoutes({
@@ -33,7 +35,16 @@ function createApp(options = {}) {
       fetchImpl,
     })
   );
-
+ 
+  app.use(
+    '/api/users',
+    createUserRoutes({
+      userServiceUrl: config.userServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+ 
   app.get('/api/protected/ping', authMiddleware, (req, res) => {
     res.json({
       success: true,
@@ -43,7 +54,7 @@ function createApp(options = {}) {
       },
     });
   });
-
+ 
   app.use((err, _req, res, _next) => {
     res.status(err.status || 500).json({
       success: false,
@@ -53,8 +64,8 @@ function createApp(options = {}) {
       },
     });
   });
-
+ 
   return app;
 }
-
+ 
 module.exports = { createApp };

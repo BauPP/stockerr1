@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 // Clave del token JWT en localStorage — compartida con AuthContext
 const TOKEN_KEY = 'stockerr_token'
 
-export async function loginRequest(nombre_usuario, contrasena) {
+export async function loginRequest(correo, contrasena) {
   let response
   try {
     response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -14,7 +14,7 @@ export async function loginRequest(nombre_usuario, contrasena) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ nombre_usuario, contrasena }),
+      body: JSON.stringify({ correo, contrasena }),
     })
   } catch {
     throw new Error('No se pudo conectar con el servidor. Verifica tu conexión.')
@@ -29,13 +29,14 @@ export async function loginRequest(nombre_usuario, contrasena) {
 
   if (response.ok) return data
 
-  if (response.status === 401) throw new Error('Usuario o contraseña incorrectos.')
+  if (response.status === 401) throw new Error('Correo o contraseña incorrectos.')
   if (response.status === 423) throw new Error('Cuenta bloqueada. Demasiados intentos fallidos. Inténtalo en 15 minutos.')
   if (response.status === 403) throw new Error('Tu cuenta está deshabilitada. Contacta al Administrador.')
 
   throw new Error(data?.mensaje || 'Error inesperado. Inténtalo de nuevo.')
 }
-//Cierra sesión contra POST /api/auth/logout
+
+// Cierra sesión contra POST /api/auth/logout
 export async function logoutRequest() {
   const token = localStorage.getItem(TOKEN_KEY)
   try {

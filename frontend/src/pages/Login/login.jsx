@@ -9,7 +9,7 @@ export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const [formData, setFormData] = useState({ nombre_usuario: '', contrasena: '' })
+  const [formData, setFormData] = useState({ correo: '', contrasena: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -25,7 +25,7 @@ export default function Login() {
     e.preventDefault()
     setErrorMsg('')
 
-    if (!formData.nombre_usuario.trim() || !formData.contrasena) {
+    if (!formData.correo.trim() || !formData.contrasena) {
       setErrorMsg('Por favor completa todos los campos.')
       setErrorType('error')
       return
@@ -33,7 +33,7 @@ export default function Login() {
 
     setIsLoading(true)
     try {
-      const data = await loginRequest(formData.nombre_usuario.trim(), formData.contrasena)
+      const data = await loginRequest(formData.correo.trim(), formData.contrasena)
       login(data.data)
       navigate(data.data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
     } catch (err) {
@@ -94,14 +94,14 @@ export default function Login() {
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
-              <label htmlFor="nombre_usuario">Usuario</label>
+              <label htmlFor="correo">Correo electrónico</label>
               <input
-                id="nombre_usuario"
-                name="nombre_usuario"
-                type="text"
-                autoComplete="username"
-                placeholder="Ingresa tu usuario"
-                value={formData.nombre_usuario}
+                id="correo"
+                name="correo"
+                type="email"
+                autoComplete="email"
+                placeholder="usuario@ejemplo.com"
+                value={formData.correo}
                 onChange={handleChange}
                 disabled={isLoading}
                 className={hasError ? 'input-error' : ''}

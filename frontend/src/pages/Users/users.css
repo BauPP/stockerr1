@@ -421,6 +421,22 @@
   animation:      u-scaleIn .18s ease;
 }
 @keyframes u-scaleIn { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: scale(1) } }
+.u-modal form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.u-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.u-modal__footer {
+  flex-shrink: 0;
+}
 
 .u-modal__header {
   display:         flex;

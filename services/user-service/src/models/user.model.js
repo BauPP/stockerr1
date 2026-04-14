@@ -97,7 +97,7 @@ function parseListQuery(query = {}) {
   const page = Math.max(1, Number(query.page || 1));
   const size = Math.min(100, Math.max(1, Number(query.size || 10)));
   const estado =
-    typeof query.estado === 'undefined' ? undefined : toBooleanEstado(String(query.estado));
+    typeof query.estado === 'undefined' || query.estado === 'todos' ? undefined : toBooleanEstado(String(query.estado));
 
   return { page, size, estado };
 }
