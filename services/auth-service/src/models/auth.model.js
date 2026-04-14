@@ -10,16 +10,16 @@ function validateLoginPayload(body) {
     throw createHttpError(400, 'VALIDATION_ERROR', 'El cuerpo de la solicitud es obligatorio');
   }
 
-  const { nombre_usuario, contrasena } = body;
-  if (!nombre_usuario || !contrasena) {
+  const { correo, contrasena } = body;
+  if (!correo || !contrasena) {
     throw createHttpError(
       400,
       'VALIDATION_ERROR',
-      'nombre_usuario y contrasena son obligatorios'
+      'correo y contrasena son obligatorios'
     );
   }
 
-  return { nombre_usuario, contrasena };
+  return { correo, contrasena };
 }
 
 function extractBearerToken(authorizationHeader) {

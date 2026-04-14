@@ -878,6 +878,8 @@ COPY public.proveedores (id_proveedor, razon_social, nit_identificacion, telefon
 --
 
 COPY public.roles (id_rol, nombre_rol, descripcion) FROM stdin;
+1	Administrador	Acceso total al sistema: usuarios, ajustes, auditoría y configuración
+2	Operador	Acceso operativo: consulta de inventario, entradas y salidas
 \.
 
 
@@ -1024,7 +1026,7 @@ SELECT pg_catalog.setval('public.proveedores_id_proveedor_seq', 1, false);
 -- Name: roles_id_rol_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.roles_id_rol_seq', 1, false);
+SELECT pg_catalog.setval('public.roles_id_rol_seq', 2, true);
 
 
 --

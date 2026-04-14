@@ -10,7 +10,7 @@ services:
       JWT_EXPIRES_IN: 30m
       MAX_LOGIN_ATTEMPTS: 3
       LOCK_TIME_MINUTES: 15
-      DEMO_USER_USERNAME: admin
+      DEMO_USER_EMAIL: admin@stockerr.com
       DEMO_USER_PASSWORD: Admin1234
       DEMO_USER_NAME: Administrador Demo
       DEMO_USER_ROLE: Administrador
@@ -25,7 +25,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-
+    
   category-service:
     build:
       context: .
@@ -45,6 +45,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: stockerr-user-service
+    environment:
+      PORT: 3004
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: stockerr
+      DB_NAME: stockerr
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -54,12 +73,15 @@ services:
       PORT: 3000
       AUTH_SERVICE_URL: http://auth-service:3002
       CATEGORY_SERVICE_URL: http://category-service:3003
+      USER_SERVICE_URL: http://user-service:3004
     ports:
       - "3000:3000"
     depends_on:
       auth-service:
         condition: service_started
       category-service:
+        condition: service_started
+      user-service:
         condition: service_started
     restart: unless-stopped
 

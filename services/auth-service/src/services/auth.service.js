@@ -49,10 +49,10 @@ class AuthService {
     return decoded;
   }
 
-  async login({ nombre_usuario, contrasena }) {
-    const user = await this.repository.getUserByUsername(nombre_usuario);
+  async login({ correo, contrasena }) {
+    const user = await this.repository.getUserByCorreo(correo);
     if (!user || user.estado !== 'activo') {
-      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Usuario o contrasena incorrectos');
+      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contraseña incorrectos');
     }
 
     if (user.bloqueo_hasta && Date.now() < user.bloqueo_hasta) {
@@ -71,7 +71,7 @@ class AuthService {
         throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', 'Cuenta bloqueada. Intente en 15 minutos');
       }
 
-      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Usuario o contrasena incorrectos');
+      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contraseña incorrectos');
     }
 
     await this.repository.resetFailedAttempts(user);

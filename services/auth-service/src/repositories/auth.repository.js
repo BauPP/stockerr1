@@ -1,17 +1,17 @@
 class InMemoryAuthRepository {
   constructor({ users = [] } = {}) {
-    this.usersByUsername = new Map();
+    this.usersByCorreo = new Map();
     this.usersById = new Map();
     this.revokedTokens = new Map();
 
     users.forEach((user) => {
-      this.usersByUsername.set(user.nombre_usuario, { ...user });
-      this.usersById.set(user.id_usuario, this.usersByUsername.get(user.nombre_usuario));
+      this.usersByCorreo.set(user.correo, { ...user });
+      this.usersById.set(user.id_usuario, this.usersByCorreo.get(user.correo));
     });
   }
 
-  async getUserByUsername(nombreUsuario) {
-    return this.usersByUsername.get(nombreUsuario) || null;
+  async getUserByCorreo(correo) {
+    return this.usersByCorreo.get(correo) || null;
   }
 
   async registerFailedAttempt(user, maxLoginAttempts, lockMinutes) {

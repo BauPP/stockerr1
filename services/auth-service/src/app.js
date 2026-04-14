@@ -3,7 +3,9 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+const { pool } = require('./config/db');
 const { InMemoryAuthRepository } = require('./repositories/auth.repository');
+const { PgAuthRepository } = require('./repositories/pg.auth.repository');
 const { AuthService } = require('./services/auth.service');
 const { AuthController } = require('./controllers/auth.controller');
 const { createAuthRoutes } = require('./routes/auth.routes');
@@ -11,7 +13,7 @@ const { createAuthRoutes } = require('./routes/auth.routes');
 function createDefaultUser() {
   return {
     id_usuario: 1,
-    nombre_usuario: process.env.DEMO_USER_USERNAME || 'admin',
+    correo: process.env.DEMO_USER_EMAIL || process.env.DEMO_USER_USERNAME || 'admin@stockerr.com',
     nombre: process.env.DEMO_USER_NAME || 'Administrador Demo',
     rol: process.env.DEMO_USER_ROLE || 'Administrador',
     estado: 'activo',
@@ -21,12 +23,16 @@ function createDefaultUser() {
   };
 }
 
+function buildRepository(options) {
+  if (options.repository) return options.repository;
+  if (options.seedUsers)  return new InMemoryAuthRepository({ users: options.seedUsers });
+  if (process.env.DB_HOST) return new PgAuthRepository({ pool: options.pool || pool });
+  return new InMemoryAuthRepository({ users: [createDefaultUser()] });
+}
+
 function createApp(options = {}) {
   const app = express();
-
-  const repository =
-    options.repository ||
-    new InMemoryAuthRepository({ users: options.seedUsers || [createDefaultUser()] });
+  const repository = buildRepository(options);
 
   const service =
     options.service ||
@@ -34,7 +40,8 @@ function createApp(options = {}) {
       repository,
       jwtSecret:
         options.serviceOptions?.jwtSecret || process.env.JWT_SECRET || 'change-me-in-production',
-      jwtExpiresIn: options.serviceOptions?.jwtExpiresIn || process.env.JWT_EXPIRES_IN || '30m',
+      jwtExpiresIn:
+        options.serviceOptions?.jwtExpiresIn || process.env.JWT_EXPIRES_IN || '30m',
       maxLoginAttempts:
         options.serviceOptions?.maxLoginAttempts || Number(process.env.MAX_LOGIN_ATTEMPTS || 3),
       lockMinutes:
@@ -56,7 +63,7 @@ function createApp(options = {}) {
     res.status(err.status || 500).json({
       success: false,
       error: {
-        code: err.code || 'INTERNAL_ERROR',
+        code:    err.code    || 'INTERNAL_ERROR',
         message: err.message || 'Error interno del servidor',
       },
     });
