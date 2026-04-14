@@ -1498,5 +1498,7 @@ ALTER TABLE ONLY public.usuarios
 --
 -- PostgreSQL database dump complete
 --
-
+-- Usuario administrador demo
+INSERT INTO usuarios (id_rol, nombre, correo, contrasena, estado)
+VALUES (1, 'Administrador Demo', 'admin@stockerr.com', '$2a$10$uEU8GTWsqyaN2FvPEi/eqOyLQJ3ezonxXSzAujSgB2hlwn8ZY75ku', true);
 \unrestrict hRvVySTNPFbTBlaWpWtPQHNGtyl4rtTI63jPESJNlbP5FXa7BtzyTvXihEzOqLN
