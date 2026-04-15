@@ -38,7 +38,7 @@ function getRolLabel(idRol) {
 }
 function mapApiError(err) {
   const map = {
-    USER_EMAIL_ALREADY_EXISTS:    'El nombre de usuario ya está en uso.',
+    USER_EMAIL_ALREADY_EXISTS:    'Este correo usuario ya está en uso.',
     ADMIN_SELF_DISABLE_FORBIDDEN: 'Un administrador no puede deshabilitarse a sí mismo.',
     USER_NOT_FOUND:               'Usuario no encontrado.',
     VALIDATION_ERROR:             'Verifica los datos ingresados.',
@@ -63,7 +63,7 @@ function validate(form, isEditing) {
     errors.nombre = 'El nombre completo es obligatorio.'
   if (!isEditing) {
     if (!form.correo.trim())
-      errors.correo = 'El nombre de usuario es obligatorio.'
+      errors.correo = 'El correo es obligatorio.'
     if (!form.contrasena)
       errors.contrasena = 'La contraseña es obligatoria.'
     else if (form.contrasena.length < 8)
@@ -274,7 +274,7 @@ export default function UsersPage() {
           <p className="u-page-subtitle">Administra las cuentas de acceso al sistema</p>
         </div>
         <button className="u-btn u-btn--primary u-btn--lg" onClick={openCreate}>
-          <IcoPlus /> Nuevo usuario
+           Nuevo usuario
         </button>
       </div>
 
@@ -328,7 +328,7 @@ export default function UsersPage() {
             <thead>
               <tr>
                 <th>Usuario</th>
-                <th>Nombre de usuario</th>
+                <th>Correo</th>
                 <th>Rol</th>
                 <th>Estado</th>
                 <th>Creado</th>
@@ -373,7 +373,7 @@ export default function UsersPage() {
                           title="Editar usuario"
                           onClick={() => openEdit(u)}
                         >
-                          <IcoEdit /> Editar
+                           Editar
                         </button>
                         <button
                           className="u-btn u-btn--danger u-btn--sm"
@@ -454,10 +454,10 @@ export default function UsersPage() {
 
                   <div className="u-form-field">
                     <label htmlFor="f-correo">
-                      Nombre de usuario
+                      Correo
                       {isEditing && <span className="u-field-hint" style={{ marginLeft: 4 }}>(no editable)</span>}
                     </label>
-                    <input id="f-correo" name="correo" type="text" placeholder="Ej: jperez"
+                    <input id="f-correo" name="correo" type="text" placeholder="Ej: jperez@stockerr.com"
                       value={form.correo} onChange={handleChange}
                       className={fieldErrors.correo ? 'is-error' : ''}
                       disabled={formLoading || isEditing} />
