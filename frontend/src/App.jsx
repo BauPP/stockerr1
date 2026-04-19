@@ -1,13 +1,13 @@
-// src/App.jsx
+// src/App.jsx — con ruta de Productos (MS-04)
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Login from './pages/Login/login'
 import Layout from './components/Layout'
 import Categories from './pages/Categories/Categories.jsx'
 import UsersPage from './pages/Users/UsersPage.jsx'
+import ProductsPage from './pages/Products/ProductsPage.jsx'
+import Inventory from './pages/Inventory/Inventory.jsx'
 
-
-// Redirige según estado de sesión al entrar a "/"
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return null
@@ -16,21 +16,18 @@ function HomeRedirect() {
     : <Navigate to="/login" replace />
 }
 
-// impide que un usuario logueado vuelva al login
 function PublicRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return null
   return !isAuthenticated ? children : <Navigate to="/dashboard" replace />
 }
 
-// redirige al login si no hay sesión activa
 function PrivateRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return null
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
-// Solo Administrador — Operador no puede ver gestión de usuarios
 function AdminRoute({ children }) {
   const { isAuthenticated, isLoading, user } = useAuth()
   if (isLoading) return null
@@ -47,7 +44,6 @@ function Dashboard() {
     </Layout>
   )
 }
-
 
 export default function App() {
   return (
@@ -81,6 +77,24 @@ export default function App() {
             <UsersPage />
           </Layout>
         </AdminRoute>
+      } />
+
+      {/* MS-04 — Admin y Operador (operador solo lectura) */}
+      <Route path="/productos" element={
+        <PrivateRoute>
+          <Layout>
+            <ProductsPage />
+          </Layout>
+        </PrivateRoute>
+      } />
+      
+      {/* MS-05 — Administrador y Operador (con rotación de rol en la vista) */}
+      <Route path="/inventario" element={
+        <PrivateRoute>
+          <Layout>
+            <Inventory />
+          </Layout>
+        </PrivateRoute>
       } />
 
     </Routes>

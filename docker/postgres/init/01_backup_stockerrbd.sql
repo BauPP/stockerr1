@@ -3,7 +3,6 @@
 --
 
 \restrict hRvVySTNPFbTBlaWpWtPQHNGtyl4rtTI63jPESJNlbP5FXa7BtzyTvXihEzOqLN
-
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
 
@@ -1499,6 +1498,10 @@ ALTER TABLE ONLY public.usuarios
 -- PostgreSQL database dump complete
 --
 -- Usuario administrador demo
-INSERT INTO usuarios (id_rol, nombre, correo, contrasena, estado)
+INSERT INTO public.usuarios (id_rol, nombre, correo, contrasena, estado)
 VALUES (1, 'Administrador Demo', 'admin@stockerr.com', '$2a$10$uEU8GTWsqyaN2FvPEi/eqOyLQJ3ezonxXSzAujSgB2hlwn8ZY75ku', true);
+
+\restrict hRvVySTNPFbTBlaWpWtPQHNGtyl4rtTI63jPESJNlbP5FXa7BtzyTvXihEzOqLN
+
+-- Elimina esta línea (al final):
 \unrestrict hRvVySTNPFbTBlaWpWtPQHNGtyl4rtTI63jPESJNlbP5FXa7BtzyTvXihEzOqLN
