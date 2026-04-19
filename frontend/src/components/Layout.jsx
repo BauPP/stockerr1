@@ -89,22 +89,18 @@ const NAV_ADMIN = [
   { to: '/dashboard',  icon: <Icon.Home />,    label: 'Inicio' },
   { to: '/usuarios',   icon: <Icon.Users />,   label: 'Usuarios' },
   { to: '/categorias', icon: <Icon.Tag />,     label: 'Categorías' },
-  { to: '/productos',  icon: <Icon.Box />,     label: 'Registrar productos' },
-  { to: '/buscar',     icon: <Icon.Search />,  label: 'Buscar productos' },
-  { to: '/ventas',     icon: <Icon.Receipt />, label: 'Ventas' },
-  { to: '/historial',  icon: <Icon.History />, label: 'Historial' },
+  { to: '/productos',  icon: <Icon.Box />,     label: 'Productos' },      
+  { to: '/inventario',     icon: <Icon.Receipt />, label: 'Inventario' },
   { to: '/alertas',    icon: <Icon.Alert />,   label: 'Alertas' },
   { to: '/reportes',   icon: <Icon.Chart />,   label: 'Reportes' },
 ]
-
+ 
 const NAV_OPERADOR = [
   { to: '/dashboard', icon: <Icon.Home />,    label: 'Inicio' },
-  { to: '/ventas',    icon: <Icon.Receipt />, label: 'Ventas' },
-  { to: '/buscar',    icon: <Icon.Search />,  label: 'Buscar productos' },
-  { to: '/historial', icon: <Icon.History />, label: 'Historial' },
+  { to: '/productos', icon: <Icon.Box />,     label: 'Productos' },          
+  { to: '/inventario',    icon: <Icon.Receipt />, label: 'Inventario' },
   { to: '/alertas',   icon: <Icon.Alert />,   label: 'Alertas' },
   { to: '/reportes',  icon: <Icon.Chart />,   label: 'Reportes' },
-  { to: '/perfil',    icon: <Icon.Profile />, label: 'Mi perfil' },
 ]
 
 export default function Layout({ children }) {
