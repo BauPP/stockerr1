@@ -3,21 +3,66 @@ class PgProductRepository {
     this.pool = pool;
   }
 
-  async createProduct({ id_categoria, nombre, codigo, codigo_barras, precio_compra, precio_venta, estado }) {
+  async createProduct({
+    id_categoria,
+    nombre,
+    codigo_barras,
+    precio_compra,
+    precio_venta,
+    stock_inicial,
+    stock_minimo,
+    stock_maximo,
+    fecha_vencimiento,
+    ubicacion,
+    descripcion,
+    estado,
+  }) {
     const query = `
-      INSERT INTO productos (id_categoria, nombre, codigo, codigo_barras, precio_compra, precio_venta, estado)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
+      INSERT INTO productos (
+        id_categoria,
+        codigo_barras_unico,
+        nombre,
+        precio_compra,
+        precio_venta,
+        stock_actual,
+        stock_minimo,
+        stock_maximo,
+        fecha_vencimiento,
+        estado,
+        ubicacion,
+        descripcion
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING
+        id_producto,
+        id_categoria,
+        codigo_barras_unico,
+        nombre,
+        precio_compra,
+        precio_venta,
+        stock_actual,
+        stock_minimo,
+        stock_maximo,
+        fecha_vencimiento,
+        estado,
+        fecha_creacion,
+        ubicacion,
+        descripcion
     `;
 
     const { rows } = await this.pool.query(query, [
       id_categoria,
-      nombre,
-      codigo,
       codigo_barras,
+      nombre,
       precio_compra,
       precio_venta,
+      stock_inicial,
+      stock_minimo,
+      stock_maximo,
+      fecha_vencimiento,
       estado,
+      ubicacion,
+      descripcion,
     ]);
 
     return rows[0] || null;
@@ -25,15 +70,31 @@ class PgProductRepository {
 
   async getProductById(idProducto, { includeInactive = false } = {}) {
     const params = [idProducto];
-    const filters = ['id_producto = $1'];
+    const filters = ['p.id_producto = $1'];
 
     if (!includeInactive) {
-      filters.push('estado = true');
+      filters.push('p.estado = true');
     }
 
     const query = `
-      SELECT *
-      FROM productos
+      SELECT
+        p.id_producto,
+        p.id_categoria,
+        p.codigo_barras_unico,
+        p.nombre,
+        p.precio_compra,
+        p.precio_venta,
+        p.stock_actual,
+        p.stock_minimo,
+        p.stock_maximo,
+        p.fecha_vencimiento,
+        p.estado,
+        p.fecha_creacion,
+        p.ubicacion,
+        p.descripcion,
+        c.nombre_categoria
+      FROM productos p
+      JOIN categorias c ON c.id_categoria = p.id_categoria
       WHERE ${filters.join(' AND ')}
       LIMIT 1
     `;
@@ -44,9 +105,23 @@ class PgProductRepository {
 
   async getProductByBarcode(codigoBarras) {
     const query = `
-      SELECT *
+      SELECT
+        id_producto,
+        id_categoria,
+        codigo_barras_unico,
+        nombre,
+        precio_compra,
+        precio_venta,
+        stock_actual,
+        stock_minimo,
+        stock_maximo,
+        fecha_vencimiento,
+        estado,
+        fecha_creacion,
+        ubicacion,
+        descripcion
       FROM productos
-      WHERE codigo_barras = $1
+      WHERE codigo_barras_unico = $1
       LIMIT 1
     `;
 
@@ -66,29 +141,30 @@ class PgProductRepository {
     return rows[0] || null;
   }
 
-  async listProducts({ page, size, name, category, code }) {
+  async listProducts({ page, size, name, category, barcode, code }) {
     const offset = (page - 1) * size;
-    const filters = ['estado = true'];
+    const filters = ['p.estado = true'];
     const params = [];
 
     if (name) {
       params.push(`%${name}%`);
-      filters.push(`LOWER(nombre) LIKE LOWER($${params.length})`);
+      filters.push(`LOWER(p.nombre) LIKE LOWER($${params.length})`);
     }
 
     if (typeof category === 'number') {
       params.push(category);
-      filters.push(`id_categoria = $${params.length}`);
+      filters.push(`p.id_categoria = $${params.length}`);
     }
 
-    if (code) {
-      params.push(`%${code}%`);
-      filters.push(`LOWER(codigo) LIKE LOWER($${params.length})`);
+    const barcodeFilter = barcode || code;
+    if (barcodeFilter) {
+      params.push(`%${barcodeFilter}%`);
+      filters.push(`p.codigo_barras_unico LIKE $${params.length}`);
     }
 
     const whereClause = `WHERE ${filters.join(' AND ')}`;
     const countResult = await this.pool.query(
-      `SELECT COUNT(*)::int AS total FROM productos ${whereClause}`,
+      `SELECT COUNT(*)::int AS total FROM productos p ${whereClause}`,
       params
     );
     const total = countResult.rows[0]?.total || 0;
@@ -97,10 +173,26 @@ class PgProductRepository {
     params.push(offset);
 
     const query = `
-      SELECT *
-      FROM productos
+      SELECT
+        p.id_producto,
+        p.id_categoria,
+        p.codigo_barras_unico,
+        p.nombre,
+        p.precio_compra,
+        p.precio_venta,
+        p.stock_actual,
+        p.stock_minimo,
+        p.stock_maximo,
+        p.fecha_vencimiento,
+        p.estado,
+        p.fecha_creacion,
+        p.ubicacion,
+        p.descripcion,
+        c.nombre_categoria
+      FROM productos p
+      JOIN categorias c ON c.id_categoria = p.id_categoria
       ${whereClause}
-      ORDER BY id_producto ASC
+      ORDER BY p.id_producto ASC
       LIMIT $${params.length - 1}
       OFFSET $${params.length}
     `;
@@ -113,10 +205,14 @@ class PgProductRepository {
     const mapping = {
       id_categoria: 'id_categoria',
       nombre: 'nombre',
-      codigo: 'codigo',
       precio_compra: 'precio_compra',
       precio_venta: 'precio_venta',
+      stock_minimo: 'stock_minimo',
+      stock_maximo: 'stock_maximo',
+      fecha_vencimiento: 'fecha_vencimiento',
       estado: 'estado',
+      ubicacion: 'ubicacion',
+      descripcion: 'descripcion',
     };
 
     const updates = [];
@@ -142,7 +238,21 @@ class PgProductRepository {
       UPDATE productos
       SET ${updates.join(', ')}
       WHERE id_producto = $${values.length}
-      RETURNING *
+      RETURNING
+        id_producto,
+        id_categoria,
+        codigo_barras_unico,
+        nombre,
+        precio_compra,
+        precio_venta,
+        stock_actual,
+        stock_minimo,
+        stock_maximo,
+        fecha_vencimiento,
+        estado,
+        fecha_creacion,
+        ubicacion,
+        descripcion
     `;
 
     const { rows } = await this.pool.query(query, values);
@@ -168,6 +278,8 @@ class InMemoryProductRepository {
     const product = {
       id_producto: this.nextId,
       ...payload,
+      stock_actual:
+        typeof payload.stock_inicial === 'number' ? payload.stock_inicial : payload.stock_actual || 0,
     };
 
     this.products.push(product);
@@ -180,11 +292,21 @@ class InMemoryProductRepository {
       (item) => item.id_producto === idProducto && (includeInactive || item.estado === true)
     );
 
-    return product ? { ...product } : null;
+    if (!product) {
+      return null;
+    }
+
+    const categoryItem = this.categories.find((entry) => entry.id_categoria === product.id_categoria);
+    return {
+      ...product,
+      nombre_categoria: categoryItem?.nombre_categoria || categoryItem?.nombre || null,
+    };
   }
 
   async getProductByBarcode(codigoBarras) {
-    const product = this.products.find((item) => item.codigo_barras === codigoBarras);
+    const product = this.products.find(
+      (item) => (item.codigo_barras_unico || item.codigo_barras) === codigoBarras
+    );
     return product ? { ...product } : null;
   }
 
@@ -193,7 +315,7 @@ class InMemoryProductRepository {
     return category ? { ...category } : null;
   }
 
-  async listProducts({ page, size, name, category, code }) {
+  async listProducts({ page, size, name, category, barcode, code }) {
     const filtered = this.products.filter((item) => {
       if (item.estado !== true) {
         return false;
@@ -207,7 +329,12 @@ class InMemoryProductRepository {
         return false;
       }
 
-      if (code && !String(item.codigo).toLowerCase().includes(String(code).toLowerCase())) {
+      if (
+        (barcode || code) &&
+        !String(item.codigo_barras_unico || item.codigo_barras)
+          .toLowerCase()
+          .includes(String(barcode || code).toLowerCase())
+      ) {
         return false;
       }
 
@@ -220,7 +347,13 @@ class InMemoryProductRepository {
       total: filtered.length,
       page,
       size,
-      items: filtered.slice(offset, offset + size).map((item) => ({ ...item })),
+      items: filtered.slice(offset, offset + size).map((item) => {
+        const categoryItem = this.categories.find((entry) => entry.id_categoria === item.id_categoria);
+        return {
+          ...item,
+          nombre_categoria: categoryItem?.nombre_categoria || categoryItem?.nombre || null,
+        };
+      }),
     };
   }
 

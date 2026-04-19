@@ -44,12 +44,14 @@ CREATE FUNCTION public.actualizar_stock() RETURNS trigger
     AS $$
 DECLARE
     tipo_op tipo_operacion_enum;
+    motivo_nombre text;
 BEGIN
-    SELECT tipo_operacion INTO tipo_op
+    SELECT tipo_operacion, nombre_motivo
+      INTO tipo_op, motivo_nombre
     FROM motivos_movimiento
     WHERE id_motivo = NEW.id_motivo;
 
-    IF tipo_op = 'ENTRADA' THEN
+    IF tipo_op = 'ENTRADA' OR (tipo_op = 'AJUSTE' AND LOWER(motivo_nombre) LIKE '%sobrante%') THEN
         NEW.stock_posterior := NEW.stock_anterior + NEW.cantidad;
     ELSE
         NEW.stock_posterior := NEW.stock_anterior - NEW.cantidad;
@@ -496,7 +498,6 @@ CREATE TABLE public.productos (
     fecha_creacion timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     ubicacion character varying(100),
     descripcion text,
-    CONSTRAINT productos_check CHECK ((precio_venta >= precio_compra)),
     CONSTRAINT productos_check1 CHECK ((stock_maximo >= stock_minimo)),
     CONSTRAINT productos_precio_compra_check CHECK ((precio_compra >= (0)::numeric)),
     CONSTRAINT productos_stock_actual_check CHECK ((stock_actual >= 0)),
@@ -1499,6 +1500,11 @@ ALTER TABLE ONLY public.usuarios
 -- PostgreSQL database dump complete
 --
 -- Usuario administrador demo
-INSERT INTO usuarios (id_rol, nombre, correo, contrasena, estado)
-VALUES (1, 'Administrador Demo', 'admin@stockerr.com', '$2a$10$uEU8GTWsqyaN2FvPEi/eqOyLQJ3ezonxXSzAujSgB2hlwn8ZY75ku', true);
+INSERT INTO public.usuarios (id_rol, nombre, correo, contrasena, estado)
+VALUES (1, 'Administrador Demo', 'admin@stockerr.com', '$2a$10$uEU8GTWsqyaN2FvPEi/eqOyLQJ3ezonxXSzAujSgB2hlwn8ZY75ku', true)
+ON CONFLICT (correo) DO NOTHING;
+INSERT INTO public.proveedores
+(razon_social, nit_identificacion, telefono, direccion, correo, estado)
+VALUES
+('Proveedor Demo', '900123456', '3000000000', 'Bogota', 'proveedor@demo.com', true);
 \unrestrict hRvVySTNPFbTBlaWpWtPQHNGtyl4rtTI63jPESJNlbP5FXa7BtzyTvXihEzOqLN

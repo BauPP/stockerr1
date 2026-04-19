@@ -19,6 +19,15 @@ async function proxyToUserService(req, res, userServiceUrl, path, method, fetchI
   if (req.headers.authorization) {
     headers.Authorization = req.headers.authorization;
   }
+  if (req.authUser?.id_usuario) {
+    headers['x-user-id'] = String(req.authUser.id_usuario);
+  }
+  if (req.authUser?.rol) {
+    headers['x-user-role'] = String(req.authUser.rol);
+  }
+  if (req.authUser?.nombre) {
+    headers['x-user-name'] = String(req.authUser.nombre);
+  }
 
   const response = await fetchImpl(buildProxyUrl(userServiceUrl, path, req.query), {
     method,

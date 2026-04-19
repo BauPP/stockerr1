@@ -65,12 +65,38 @@ function normalizePrice(value, fieldName) {
   return normalized;
 }
 
+function normalizeNonNegativeInteger(value, fieldName) {
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized < 0) {
+    throw createHttpError(
+      400,
+      'VALIDATION_ERROR',
+      `${fieldName} debe ser un entero mayor o igual a 0`
+    );
+  }
+
+  return normalized;
+}
+
 function normalizeBarcode(value) {
   const barcode = normalizeRequiredString(value, 'codigo_barras');
   if (!/^\d{13}$/.test(barcode)) {
     throw createHttpError(400, 'VALIDATION_ERROR', 'codigo_barras debe cumplir formato EAN-13');
   }
   return barcode;
+}
+
+function normalizeOptionalDate(value, fieldName) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return undefined;
+  }
+
+  const normalized = normalizeTrimmedString(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw createHttpError(400, 'VALIDATION_ERROR', `${fieldName} debe tener formato YYYY-MM-DD`);
+  }
+
+  return normalized;
 }
 
 function readAlias(source, aliases) {
@@ -89,7 +115,6 @@ function validateCreateProductPayload(body) {
   }
 
   const nombre = normalizeRequiredString(readAlias(body, ['nombre', 'name']), 'nombre');
-  const codigo = normalizeRequiredString(readAlias(body, ['codigo', 'code']), 'codigo');
   const codigo_barras = normalizeBarcode(readAlias(body, ['codigo_barras', 'barcode']));
   const id_categoria = normalizePositiveInteger(
     readAlias(body, ['id_categoria', 'categoryId', 'category']),
@@ -103,18 +128,43 @@ function validateCreateProductPayload(body) {
     readAlias(body, ['precio_venta', 'sale_price', 'salePrice']),
     'precio_venta'
   );
+  const stock_inicial = normalizeNonNegativeInteger(
+    readAlias(body, ['stock_inicial', 'stockInicial', 'stock_actual']),
+    'stock_inicial'
+  );
+  const stock_minimo =
+    typeof readAlias(body, ['stock_minimo', 'stockMinimo']) === 'undefined'
+      ? 0
+      : normalizeNonNegativeInteger(readAlias(body, ['stock_minimo', 'stockMinimo']), 'stock_minimo');
+  const stock_maximo =
+    typeof readAlias(body, ['stock_maximo', 'stockMaximo']) === 'undefined'
+      ? null
+      : normalizeNonNegativeInteger(readAlias(body, ['stock_maximo', 'stockMaximo']), 'stock_maximo');
   const estado =
     typeof readAlias(body, ['estado']) === 'undefined'
       ? true
       : toBooleanEstado(readAlias(body, ['estado']));
 
+  if (typeof stock_maximo === 'number' && stock_maximo < stock_minimo) {
+    throw createHttpError(
+      400,
+      'VALIDATION_ERROR',
+      'stock_maximo no puede ser menor que stock_minimo'
+    );
+  }
+
   return {
     nombre,
-    codigo,
     codigo_barras,
     id_categoria,
     precio_compra,
     precio_venta,
+    stock_inicial,
+    stock_minimo,
+    stock_maximo,
+    fecha_vencimiento: normalizeOptionalDate(body.fecha_vencimiento, 'fecha_vencimiento'),
+    ubicacion: normalizeTrimmedString(body.ubicacion) || null,
+    descripcion: normalizeTrimmedString(body.descripcion) || null,
     estado,
   };
 }
@@ -137,12 +187,11 @@ function validateUpdateProductPayload(body) {
 
   const patch = {};
 
-  if (Object.prototype.hasOwnProperty.call(body, 'nombre') || Object.prototype.hasOwnProperty.call(body, 'name')) {
+  if (
+    Object.prototype.hasOwnProperty.call(body, 'nombre') ||
+    Object.prototype.hasOwnProperty.call(body, 'name')
+  ) {
     patch.nombre = normalizeRequiredString(readAlias(body, ['nombre', 'name']), 'nombre');
-  }
-
-  if (Object.prototype.hasOwnProperty.call(body, 'codigo') || Object.prototype.hasOwnProperty.call(body, 'code')) {
-    patch.codigo = normalizeRequiredString(readAlias(body, ['codigo', 'code']), 'codigo');
   }
 
   if (
@@ -182,6 +231,58 @@ function validateUpdateProductPayload(body) {
     patch.estado = toBooleanEstado(body.estado);
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'stock_actual')) {
+    throw createHttpError(
+      409,
+      'PRODUCT_STOCK_MANAGED_BY_MOVEMENTS',
+      'stock_actual solo puede modificarse desde movimientos de inventario'
+    );
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(body, 'stock_minimo') ||
+    Object.prototype.hasOwnProperty.call(body, 'stockMinimo')
+  ) {
+    patch.stock_minimo = normalizeNonNegativeInteger(
+      readAlias(body, ['stock_minimo', 'stockMinimo']),
+      'stock_minimo'
+    );
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(body, 'stock_maximo') ||
+    Object.prototype.hasOwnProperty.call(body, 'stockMaximo')
+  ) {
+    patch.stock_maximo = normalizeNonNegativeInteger(
+      readAlias(body, ['stock_maximo', 'stockMaximo']),
+      'stock_maximo'
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'fecha_vencimiento')) {
+    patch.fecha_vencimiento = normalizeOptionalDate(body.fecha_vencimiento, 'fecha_vencimiento') || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'ubicacion')) {
+    patch.ubicacion = normalizeTrimmedString(body.ubicacion) || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'descripcion')) {
+    patch.descripcion = normalizeTrimmedString(body.descripcion) || null;
+  }
+
+  if (
+    typeof patch.stock_minimo === 'number' &&
+    typeof patch.stock_maximo === 'number' &&
+    patch.stock_maximo < patch.stock_minimo
+  ) {
+    throw createHttpError(
+      400,
+      'VALIDATION_ERROR',
+      'stock_maximo no puede ser menor que stock_minimo'
+    );
+  }
+
   if (Object.keys(patch).length === 0) {
     throw createHttpError(400, 'VALIDATION_ERROR', 'Debe enviar al menos un campo para actualizar');
   }
@@ -199,17 +300,20 @@ function parseProductId(value) {
 
 function parseListQuery(query = {}) {
   const page = normalizePageNumber(query.page, 1);
-  const size = Math.min(100, normalizePageNumber(query.size, 10));
+  const size = Math.min(20, normalizePageNumber(query.size, 10));
   const name = normalizeTrimmedString(readAlias(query, ['name', 'nombre']));
-  const code = normalizeTrimmedString(readAlias(query, ['code', 'codigo']));
+  const barcode = normalizeTrimmedString(readAlias(query, ['barcode', 'codigo_barras', 'code', 'codigo']));
   const categoryRaw = readAlias(query, ['category', 'id_categoria', 'categoryId']);
 
   return {
     page,
     size,
     name: name || undefined,
-    code: code || undefined,
-    category: typeof categoryRaw === 'undefined' || categoryRaw === '' ? undefined : normalizePositiveInteger(categoryRaw, 'category'),
+    barcode: barcode || undefined,
+    category:
+      typeof categoryRaw === 'undefined' || categoryRaw === ''
+        ? undefined
+        : normalizePositiveInteger(categoryRaw, 'category'),
   };
 }
 

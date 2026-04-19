@@ -45,6 +45,10 @@ class PgAuthRepository {
     };
   }
 
+  async getUserByIdentifier(identifier) {
+    return this.getUserByCorreo(identifier);
+  }
+
   async registerFailedAttempt(user, maxLoginAttempts, lockMinutes) {
     user.intentos_fallidos += 1;
 

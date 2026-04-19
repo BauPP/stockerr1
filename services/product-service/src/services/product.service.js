@@ -27,6 +27,38 @@ function buildPriceWarning(product) {
   return null;
 }
 
+function formatProduct(product) {
+  if (!product) {
+    return null;
+  }
+
+  return {
+    id: product.id_producto,
+    id_producto: product.id_producto,
+    codigo: product.codigo_barras_unico || product.codigo_barras,
+    codigo_barras: product.codigo_barras_unico || product.codigo_barras,
+    nombre: product.nombre,
+    categoria: product.nombre_categoria || product.categoria || null,
+    id_categoria: product.id_categoria,
+    precio_compra: Number(product.precio_compra),
+    precio_venta: Number(product.precio_venta),
+    stock_actual: Number(product.stock_actual || 0),
+    stock_minimo:
+      product.stock_minimo === null || typeof product.stock_minimo === 'undefined'
+        ? null
+        : Number(product.stock_minimo),
+    stock_maximo:
+      product.stock_maximo === null || typeof product.stock_maximo === 'undefined'
+        ? null
+        : Number(product.stock_maximo),
+    fecha_vencimiento: product.fecha_vencimiento || null,
+    ubicacion: product.ubicacion || null,
+    descripcion: product.descripcion || null,
+    estado: product.estado,
+    fecha_creacion: product.fecha_creacion || null,
+  };
+}
+
 class ProductService {
   constructor({ repository }) {
     this.repository = repository;
@@ -53,10 +85,13 @@ class ProductService {
     await this.validateCategory(payload.id_categoria);
 
     const created = await this.repository.createProduct(payload);
+    const createdFull = await this.repository.getProductById(created.id_producto, {
+      includeInactive: true,
+    });
 
     return {
-      data: created,
-      warning: buildPriceWarning(created),
+      data: formatProduct(createdFull || created),
+      warning: buildPriceWarning(createdFull || created),
     };
   }
 
@@ -67,7 +102,7 @@ class ProductService {
     }
 
     return {
-      data: product,
+      data: formatProduct(product),
       warning: buildPriceWarning(product),
     };
   }
@@ -80,7 +115,15 @@ class ProductService {
       page: result.page,
       size: result.size,
       totalPages: Math.ceil(result.total / result.size) || 1,
-      items: result.items,
+      productos: result.items.map((item) => ({
+        id: item.id_producto,
+        id_producto: item.id_producto,
+        codigo_barras: item.codigo_barras_unico || item.codigo_barras,
+        nombre: item.nombre,
+        categoria: item.nombre_categoria || item.categoria || null,
+        precio_venta: Number(item.precio_venta),
+        stock_actual: Number(item.stock_actual || 0),
+      })),
     };
   }
 
@@ -94,10 +137,11 @@ class ProductService {
       await this.validateCategory(patch.id_categoria);
     }
 
-    const updated = await this.repository.updateProductPartial(idProducto, patch);
+    await this.repository.updateProductPartial(idProducto, patch);
+    const updated = await this.repository.getProductById(idProducto, { includeInactive: true });
 
     return {
-      data: updated,
+      data: formatProduct(updated),
       warning: buildPriceWarning(updated),
     };
   }
@@ -108,10 +152,11 @@ class ProductService {
       throw createHttpError(404, 'PRODUCT_NOT_FOUND', 'Producto no encontrado');
     }
 
-    const deleted = await this.repository.softDeleteProduct(idProducto);
+    await this.repository.softDeleteProduct(idProducto);
+    const deleted = await this.repository.getProductById(idProducto, { includeInactive: true });
 
     return {
-      data: deleted,
+      data: formatProduct(deleted),
       warning: buildPriceWarning(deleted),
     };
   }
