@@ -8,8 +8,4 @@ const pool = new Pool({
   database: process.env.DB_NAME,
 });
 
-pool.connect()
-  .then(() => console.log('✅ DB conectada'))
-  .catch(err => console.error('❌ Error DB:', err));
-
-module.exports = pool;
+module.exports = { pool };

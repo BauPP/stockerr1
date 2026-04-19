@@ -20,6 +20,15 @@ async function proxyToCategoryService(req, res, categoryServiceUrl, path, method
   if (req.headers.authorization) {
     headers.Authorization = req.headers.authorization;
   }
+  if (req.authUser?.id_usuario) {
+    headers['x-user-id'] = String(req.authUser.id_usuario);
+  }
+  if (req.authUser?.rol) {
+    headers['x-user-role'] = String(req.authUser.rol);
+  }
+  if (req.authUser?.nombre) {
+    headers['x-user-name'] = String(req.authUser.nombre);
+  }
 
   const response = await fetchImpl(buildProxyUrl(categoryServiceUrl, path, req.query), {
     method,

@@ -13,6 +13,7 @@ const { createAuthRoutes } = require('./routes/auth.routes');
 function createDefaultUser() {
   return {
     id_usuario: 1,
+    nombre_usuario: process.env.DEMO_USER_USERNAME || 'admin',
     correo: process.env.DEMO_USER_EMAIL || process.env.DEMO_USER_USERNAME || 'admin@stockerr.com',
     nombre: process.env.DEMO_USER_NAME || 'Administrador Demo',
     rol: process.env.DEMO_USER_ROLE || 'Administrador',

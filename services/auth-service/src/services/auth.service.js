@@ -50,7 +50,9 @@ class AuthService {
   }
 
   async login({ correo, contrasena }) {
-    const user = await this.repository.getUserByCorreo(correo);
+    const user = this.repository.getUserByIdentifier
+      ? await this.repository.getUserByIdentifier(correo)
+      : await this.repository.getUserByCorreo(correo);
     if (!user || user.estado !== 'activo') {
       throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contraseña incorrectos');
     }
