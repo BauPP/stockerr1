@@ -6,6 +6,7 @@ const { buildServiceConfig } = require('./config/services');
 const { createAuthMiddleware } = require('./middlewares/auth.middleware');
 const { createAuthRoutes } = require('./routes/auth.routes');
 const { createCategoryRoutes } = require('./routes/category.routes');
+const { createAuditRoutes } = require('./routes/audit.routes');
 const { createInventoryRoutes } = require('./routes/inventory.routes');
 const { createProductRoutes } = require('./routes/product.routes');
 const { createUserRoutes } = require('./routes/user.routes');
@@ -60,6 +61,15 @@ function createApp(options = {}) {
     '/api/inventory',
     createInventoryRoutes({
       inventoryServiceUrl: config.inventoryServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
+  app.use(
+    '/api/audit',
+    createAuditRoutes({
+      auditServiceUrl: config.auditServiceUrl,
       authMiddleware,
       fetchImpl,
     })

@@ -19,15 +19,47 @@ class InventoryNotifier {
     });
   }
 
+  buildAuditPayload(movement) {
+    const isAdjustment = movement.movement_type === 'ajuste' || movement.tipo_movimiento === 'ajuste';
+    return {
+      action: isAdjustment ? 'registrar_ajuste' : 'registrar_movimiento',
+      module: 'inventario',
+      entity: 'movimiento_inventario',
+      entityId: movement.id_movimiento,
+      user: movement.id_usuario
+        ? {
+            id_usuario: movement.id_usuario,
+            nombre: movement.nombre_usuario || movement.usuario_nombre,
+            rol: movement.rol_usuario || null,
+          }
+        : undefined,
+      detail: {
+        tipo_movimiento: movement.movement_type || movement.tipo_movimiento,
+        tipo_ajuste: movement.tipo_ajuste || null,
+        motivo: movement.nombre_motivo || movement.motivo_ajuste || movement.motivo || null,
+        cantidad: Number(movement.cantidad),
+        id_producto: movement.id_producto,
+        numero_factura: movement.numero_factura || null,
+        comentario: movement.comentarios || movement.comentario || null,
+      },
+      previousData: {
+        stock_actual: Number(movement.stock_anterior),
+      },
+      newData: {
+        stock_actual: Number(movement.stock_posterior),
+      },
+    };
+  }
+
   async notifyMovementRegistered(movement) {
-    const event = {
+    const movementEvent = {
       event: 'inventory.movement.created',
       data: movement,
     };
 
     await Promise.allSettled([
-      this.post(this.ms06MovementWebhookUrl, event),
-      this.post(this.ms09MovementWebhookUrl, event),
+      this.post(this.ms06MovementWebhookUrl, movementEvent),
+      this.post(this.ms09MovementWebhookUrl, this.buildAuditPayload(movement)),
     ]);
   }
 }

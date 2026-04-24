@@ -8,6 +8,7 @@ function buildServiceConfig(overrides = {}) {
     productServiceUrl: overrides.productServiceUrl || process.env.PRODUCT_SERVICE_URL || 'http://localhost:3001',
     inventoryServiceUrl:
       overrides.inventoryServiceUrl || process.env.INVENTORY_SERVICE_URL || 'http://localhost:3005',
+    auditServiceUrl: overrides.auditServiceUrl || process.env.AUDIT_SERVICE_URL || 'http://localhost:3006',
   };
 }
 

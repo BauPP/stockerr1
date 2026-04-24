@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 const request = require('supertest');
 
+const { createApp: createAuditApp } = require('../../services/audit-service/src/app');
+const {
+  InMemoryAuditRepository,
+} = require('../../services/audit-service/src/repositories/audit.repository');
 const { createApp: createAuthApp } = require('../../services/auth-service/src/app');
 const {
   createApp: createCategoryApp,
@@ -23,6 +27,10 @@ const {
 const { createApp: createGatewayApp } = require('../src/app');
 
 async function startServer(app) {
+  if (app.ready) {
+    await app.ready;
+  }
+
   return new Promise((resolve) => {
     const server = app.listen(0, () => resolve(server));
   });
@@ -65,9 +73,40 @@ function createSeedUsers() {
   ];
 }
 
-test('Gateway integra login, users, categories, products e inventory movements', async () => {
+async function waitForAuditLogCount(gatewayApp, token, expectedTotal) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await request(gatewayApp)
+      .get('/api/audit/logs?page=1&size=20')
+      .set('Authorization', `Bearer ${token}`);
+
+    if (response.status === 200 && response.body?.data?.total >= expectedTotal) {
+      return response;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw new Error(`No se alcanzaron ${expectedTotal} logs de auditoria a tiempo`);
+}
+
+test('Gateway integra login, users, categories, products, inventory y audit logs', async () => {
+  const auditApp = createAuditApp({
+    repository: new InMemoryAuditRepository(),
+    authMiddleware: (req, _res, next) => {
+      req.authUser = {
+        id_usuario: 1,
+        nombre: 'Administrador Demo',
+        rol: 'Administrador',
+      };
+      next();
+    },
+  });
+  const auditServer = await startServer(auditApp);
+  const auditPort = auditServer.address().port;
+
   const authApp = createAuthApp({
     seedUsers: createSeedUsers(),
+    ms09AuditWebhookUrl: `http://127.0.0.1:${auditPort}/api/audit/events`,
     serviceOptions: {
       jwtSecret: 'test-secret',
     },
@@ -90,6 +129,7 @@ test('Gateway integra login, users, categories, products e inventory movements',
         },
       ],
     }),
+    ms09AuditWebhookUrl: `http://127.0.0.1:${auditPort}/api/audit/events`,
     serviceOptions: {
       bcryptSaltRounds: 4,
     },
@@ -145,10 +185,10 @@ test('Gateway integra login, users, categories, products e inventory movements',
       movements: [],
     }),
     authServiceUrl: `http://127.0.0.1:${authPort}`,
-    notifier: { notifyMovementRegistered: async () => {} },
+    ms09MovementWebhookUrl: `http://127.0.0.1:${auditPort}/api/audit/events`,
+    notifier: undefined,
   });
   const inventoryServer = await startServer(inventoryApp);
-
   const inventoryPort = inventoryServer.address().port;
 
   const gatewayApp = createGatewayApp({
@@ -157,7 +197,14 @@ test('Gateway integra login, users, categories, products e inventory movements',
     categoryServiceUrl: `http://127.0.0.1:${categoryPort}`,
     productServiceUrl: `http://127.0.0.1:${productPort}`,
     inventoryServiceUrl: `http://127.0.0.1:${inventoryPort}`,
+    auditServiceUrl: `http://127.0.0.1:${auditPort}`,
   });
+
+  const failedLogin = await request(gatewayApp).post('/api/auth/login').send({
+    nombre_usuario: 'admin',
+    contrasena: 'incorrecta',
+  });
+  assert.equal(failedLogin.status, 401);
 
   const adminLogin = await request(gatewayApp).post('/api/auth/login').send({
     nombre_usuario: 'admin',
@@ -247,6 +294,36 @@ test('Gateway integra login, users, categories, products e inventory movements',
   assert.equal(listMovementsResponse.body.success, true);
   assert.equal(listMovementsResponse.body.data.total, 1);
 
+  const auditLogsResponse = await waitForAuditLogCount(gatewayApp, adminToken, 4);
+  assert.equal(auditLogsResponse.status, 200);
+  assert.equal(auditLogsResponse.body.success, true);
+
+  const actions = auditLogsResponse.body.data.logs.map((item) => item.accion);
+  assert.ok(actions.includes('login_fallido'));
+  assert.ok(actions.includes('login_exitoso'));
+  assert.ok(actions.includes('crear_usuario'));
+  assert.ok(actions.includes('registrar_movimiento'));
+
+  const inventoryLog = auditLogsResponse.body.data.logs.find(
+    (item) => item.accion === 'registrar_movimiento'
+  );
+  assert.equal(inventoryLog.modulo, 'inventario');
+  assert.equal(inventoryLog.datos_nuevos.stock_actual, 15);
+
+  const filteredAuditLogs = await request(gatewayApp)
+    .get('/api/audit/logs?modulo=usuarios')
+    .set('Authorization', `Bearer ${adminToken}`);
+
+  assert.equal(filteredAuditLogs.status, 200);
+  assert.equal(filteredAuditLogs.body.data.logs.every((item) => item.modulo === 'usuarios'), true);
+
+  const forbiddenAuditLogs = await request(gatewayApp)
+    .get('/api/audit/logs')
+    .set('Authorization', `Bearer ${operatorToken}`);
+
+  assert.equal(forbiddenAuditLogs.status, 403);
+  assert.equal(forbiddenAuditLogs.body.error.code, 'AUTH_FORBIDDEN');
+
   const forbiddenProductCreate = await request(gatewayApp)
     .post('/api/products')
     .set('Authorization', `Bearer ${operatorToken}`)
@@ -267,4 +344,5 @@ test('Gateway integra login, users, categories, products e inventory movements',
   await stopServer(categoryServer);
   await stopServer(userServer);
   await stopServer(authServer);
+  await stopServer(auditServer);
 });

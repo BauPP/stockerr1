@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test --test-force-exit tests/**/*.test.js"
+    "test": "node --test --test-isolation=none --test-force-exit tests/**/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
