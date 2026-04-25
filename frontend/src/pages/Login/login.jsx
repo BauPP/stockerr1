@@ -9,7 +9,7 @@ export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const [formData, setFormData] = useState({ nombre_usuario: '', contrasena: '' })
+  const [formData, setFormData] = useState({ correo: '', contrasena: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -25,7 +25,7 @@ export default function Login() {
     e.preventDefault()
     setErrorMsg('')
 
-    if (!formData.nombre_usuario.trim() || !formData.contrasena) {
+    if (!formData.correo.trim() || !formData.contrasena) {
       setErrorMsg('Por favor completa todos los campos.')
       setErrorType('error')
       return
@@ -33,9 +33,9 @@ export default function Login() {
 
     setIsLoading(true)
     try {
-      const data = await loginRequest(formData.nombre_usuario.trim(), formData.contrasena)
-      login(data)
-      navigate(data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
+      const data = await loginRequest(formData.correo.trim(), formData.contrasena)
+      login(data.data)
+      navigate(data.data.rol === 'Administrador' ? '/dashboard/admin' : '/dashboard', { replace: true })
     } catch (err) {
       const message = err.message || 'Error desconocido.'
       setErrorType(message.includes('bloqueada') ? 'warning' : 'error')
@@ -49,7 +49,6 @@ export default function Login() {
 
   return (
     <>
-      {/* Header superior */}
       <header className="login-topbar">
         <div className="login-topbar-logo">
           <img src={logo} alt="Stockerr" />
@@ -60,10 +59,8 @@ export default function Login() {
         </div>
       </header>
 
-     
       <div className="login-page">
         <div className="login-card">
-
           <div className="login-header">
             <h1 className="login-title">Iniciar sesión</h1>
             <p className="login-subtitle">Ingresa tus credenciales para acceder al sistema</p>
@@ -97,14 +94,14 @@ export default function Login() {
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
-              <label htmlFor="nombre_usuario">Usuario</label>
+              <label htmlFor="correo">Correo electrónico</label>
               <input
-                id="nombre_usuario"
-                name="nombre_usuario"
-                type="text"
-                autoComplete="username"
-                placeholder="Ingresa tu usuario"
-                value={formData.nombre_usuario}
+                id="correo"
+                name="correo"
+                type="email"
+                autoComplete="email"
+                placeholder="usuario@ejemplo.com"
+                value={formData.correo}
                 onChange={handleChange}
                 disabled={isLoading}
                 className={hasError ? 'input-error' : ''}
@@ -156,7 +153,6 @@ export default function Login() {
               {isLoading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
-
         </div>
       </div>
     </>
