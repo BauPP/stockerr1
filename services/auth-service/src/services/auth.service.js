@@ -20,8 +20,19 @@ function parseExpiresToSeconds(expiresIn) {
 }
 
 class AuthService {
-  constructor({ repository, jwtSecret, jwtExpiresIn = '30m', maxLoginAttempts = 3, lockMinutes = 15 }) {
+  constructor({
+    repository,
+    auditNotifier = {
+      notifyLoginSuccess: async () => {},
+      notifyLoginFailure: async () => {},
+    },
+    jwtSecret,
+    jwtExpiresIn = '30m',
+    maxLoginAttempts = 3,
+    lockMinutes = 15,
+  }) {
     this.repository = repository;
+    this.auditNotifier = auditNotifier;
     this.jwtSecret = jwtSecret;
     this.jwtExpiresIn = jwtExpiresIn;
     this.maxLoginAttempts = maxLoginAttempts;
@@ -53,11 +64,25 @@ class AuthService {
     const user = this.repository.getUserByIdentifier
       ? await this.repository.getUserByIdentifier(correo)
       : await this.repository.getUserByCorreo(correo);
+
     if (!user || user.estado !== 'activo') {
-      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contraseña incorrectos');
+      void this.auditNotifier
+        .notifyLoginFailure({
+          identifier: correo,
+          reason: 'credenciales_invalidas',
+        })
+        .catch(() => {});
+      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contrasena incorrectos');
     }
 
     if (user.bloqueo_hasta && Date.now() < user.bloqueo_hasta) {
+      void this.auditNotifier
+        .notifyLoginFailure({
+          user,
+          identifier: correo,
+          reason: 'cuenta_bloqueada',
+        })
+        .catch(() => {});
       throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', 'Cuenta bloqueada. Intente en 15 minutos');
     }
 
@@ -69,15 +94,32 @@ class AuthService {
         this.lockMinutes
       );
 
+      void this.auditNotifier
+        .notifyLoginFailure({
+          user,
+          identifier: correo,
+          reason: failed.blocked ? 'cuenta_bloqueada' : 'credenciales_invalidas',
+        })
+        .catch(() => {});
+
       if (failed.blocked) {
         throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', 'Cuenta bloqueada. Intente en 15 minutos');
       }
 
-      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contraseña incorrectos');
+      throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contrasena incorrectos');
     }
 
     await this.repository.resetFailedAttempts(user);
     const token = this.signToken(user);
+    const decoded = jwt.decode(token);
+
+    void this.auditNotifier
+      .notifyLoginSuccess({
+        user,
+        identifier: correo,
+        sessionId: decoded?.jti || null,
+      })
+      .catch(() => {});
 
     return {
       token,
@@ -106,14 +148,14 @@ class AuthService {
       if (error.name === 'TokenExpiredError') {
         throw createHttpError(401, 'AUTH_TOKEN_EXPIRED', 'Token expirado');
       }
-      throw createHttpError(401, 'AUTH_TOKEN_INVALID', 'Token inválido');
+      throw createHttpError(401, 'AUTH_TOKEN_INVALID', 'Token invalido');
     }
   }
 
   async logout(token) {
     const decoded = this.decodeWithoutVerification(token);
     if (!decoded) {
-      throw createHttpError(401, 'AUTH_TOKEN_INVALID', 'Token inválido');
+      throw createHttpError(401, 'AUTH_TOKEN_INVALID', 'Token invalido');
     }
 
     await this.repository.revokeToken(token, decoded.exp * 1000);

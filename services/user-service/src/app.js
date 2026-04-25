@@ -2,14 +2,18 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const { buildServiceConfig } = require('./config/services');
 const { pool } = require('./config/db');
 const { UserController } = require('./controllers/user.controller');
 const { PgUserRepository, InMemoryUserRepository } = require('./repositories/user.repository');
 const { createUserRoutes } = require('./routes/user.routes');
+const { UserAuditNotifier } = require('./services/user-audit-notifier.service');
 const { UserService } = require('./services/user.service');
 
 function createApp(options = {}) {
   const app = express();
+  const config = buildServiceConfig(options);
+  const fetchImpl = options.fetchImpl || fetch;
 
   const repository =
     options.repository ||
@@ -17,10 +21,18 @@ function createApp(options = {}) {
       ? new InMemoryUserRepository({ users: options.seedUsers || [] })
       : new PgUserRepository(pool));
 
+  const auditNotifier =
+    options.auditNotifier ||
+    new UserAuditNotifier({
+      auditWebhookUrl: config.ms09AuditWebhookUrl,
+      fetchImpl,
+    });
+
   const service =
     options.service ||
     new UserService({
       repository,
+      auditNotifier,
       bcryptSaltRounds: options.serviceOptions?.bcryptSaltRounds || 10,
     });
 

@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/gateway-category.integration.test.js && node --test tests/gateway-full.integration.test.js"
+    "test": "node --test --test-isolation=none tests/gateway-category.integration.test.js tests/gateway-full.integration.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -20,15 +20,24 @@ function sanitizeUser(user) {
 }
 
 class UserService {
-  constructor({ repository, bcryptSaltRounds = 10 }) {
+  constructor({
+    repository,
+    auditNotifier = {
+      notifyUserCreated: async () => {},
+      notifyUserUpdated: async () => {},
+      notifyUserDisabled: async () => {},
+    },
+    bcryptSaltRounds = 10,
+  }) {
     this.repository = repository;
+    this.auditNotifier = auditNotifier;
     this.bcryptSaltRounds = bcryptSaltRounds;
   }
 
-  async createUser(payload) {
+  async createUser(payload, actorContext = {}) {
     const existing = await this.repository.getUserByCorreo(payload.correo);
     if (existing) {
-      throw createHttpError(409, 'USER_EMAIL_ALREADY_EXISTS', 'El correo ya está registrado');
+      throw createHttpError(409, 'USER_EMAIL_ALREADY_EXISTS', 'El correo ya esta registrado');
     }
 
     const contrasena = await bcrypt.hash(payload.contrasena, this.bcryptSaltRounds);
@@ -41,7 +50,15 @@ class UserService {
       estado: payload.estado,
     });
 
-    return sanitizeUser(created);
+    const safeUser = sanitizeUser(created);
+    void this.auditNotifier
+      .notifyUserCreated({
+        actorContext,
+        currentUser: safeUser,
+      })
+      .catch(() => {});
+
+    return safeUser;
   }
 
   async getUserById(idUsuario) {
@@ -75,7 +92,7 @@ class UserService {
       throw createHttpError(
         409,
         'ADMIN_SELF_DISABLE_FORBIDDEN',
-        'Un administrador no puede deshabilitarse a sí mismo'
+        'Un administrador no puede deshabilitarse a si mismo'
       );
     }
   }
@@ -89,7 +106,7 @@ class UserService {
     if (patch.correo) {
       const duplicated = await this.repository.getUserByCorreoExcludingId(patch.correo, idUsuario);
       if (duplicated) {
-        throw createHttpError(409, 'USER_EMAIL_ALREADY_EXISTS', 'El correo ya está registrado');
+        throw createHttpError(409, 'USER_EMAIL_ALREADY_EXISTS', 'El correo ya esta registrado');
       }
     }
 
@@ -101,7 +118,18 @@ class UserService {
     }
 
     const updated = await this.repository.updateUserPartial(idUsuario, patchToPersist);
-    return sanitizeUser(updated);
+    const safeCurrent = sanitizeUser(current);
+    const safeUpdated = sanitizeUser(updated);
+
+    void this.auditNotifier
+      .notifyUserUpdated({
+        actorContext,
+        previousUser: safeCurrent,
+        currentUser: safeUpdated,
+      })
+      .catch(() => {});
+
+    return safeUpdated;
   }
 
   async deleteUser(idUsuario, actorContext = {}) {
@@ -113,7 +141,18 @@ class UserService {
     this.validateAdminSelfDisable(actorContext, idUsuario, false);
 
     const updated = await this.repository.softDeleteUser(idUsuario);
-    return sanitizeUser(updated);
+    const safeCurrent = sanitizeUser(current);
+    const safeUpdated = sanitizeUser(updated);
+
+    void this.auditNotifier
+      .notifyUserDisabled({
+        actorContext,
+        previousUser: safeCurrent,
+        currentUser: safeUpdated,
+      })
+      .catch(() => {});
+
+    return safeUpdated;
   }
 }
 

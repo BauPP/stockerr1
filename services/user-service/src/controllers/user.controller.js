@@ -14,7 +14,8 @@ class UserController {
   createUser = async (req, res, next) => {
     try {
       const payload = validateCreateUserPayload(req.body);
-      const user = await this.userService.createUser(payload);
+      const actorContext = extractActorContext(req.headers);
+      const user = await this.userService.createUser(payload, actorContext);
       res.status(201).json({ success: true, data: user });
     } catch (error) {
       next(error);

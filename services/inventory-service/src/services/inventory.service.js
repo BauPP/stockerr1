@@ -181,6 +181,7 @@ class InventoryService {
         ...movement,
         nombre_producto: product.nombre,
         nombre_usuario: actor.nombre,
+        rol_usuario: actor.rol,
         nombre_motivo:
           payload.tipo_movimiento === MOVEMENT_TYPES.ADJUSTMENT
             ? payload.motivo_ajuste
