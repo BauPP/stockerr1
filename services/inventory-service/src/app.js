@@ -2,71 +2,34 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { pool } = require('./config/db');
-const { buildServiceConfig } = require('./config/services');
-const { InventoryController } = require('./controllers/inventory.controller');
-const { createAuthMiddleware } = require('./middlewares/auth.middleware');
-const {
-  PgInventoryRepository,
-  InMemoryInventoryRepository,
-} = require('./repositories/inventory.repository');
-const { createInventoryRoutes } = require('./routes/inventory.routes');
-const { InventoryNotifier } = require('./services/inventory-notifier.service');
-const { InventoryService } = require('./services/inventory.service');
+const { createInventoryReadRecords } = require('./config/db');
+const { createInventoryController } = require('./controllers/inventory.controller');
+const { createInventoryRepository } = require('./repositories/inventory.repository');
+const { createInventoryRouter } = require('./routes/inventory.routes');
+const { createInventoryService } = require('./services/inventory.service');
 
-function createApp(options = {}) {
+function createApp({ repository, now, service } = {}) {
   const app = express();
-  const config = buildServiceConfig(options);
-  const fetchImpl = options.fetchImpl || fetch;
-
-  const repository =
-    options.repository ||
-    (process.env.INVENTORY_REPOSITORY === 'inmemory'
-      ? new InMemoryInventoryRepository({
-          products: options.seedProducts || [],
-          movements: options.seedMovements || [],
-        })
-      : new PgInventoryRepository({
-          pool,
-        }));
-
-  const notifier =
-    options.notifier ||
-    new InventoryNotifier({
-      ms06MovementWebhookUrl: config.ms06MovementWebhookUrl,
-      ms09MovementWebhookUrl: config.ms09MovementWebhookUrl,
-      fetchImpl,
-    });
-
-  const service = options.service || new InventoryService({ repository, notifier });
-  const controller = options.controller || new InventoryController(service);
-  const authMiddleware =
-    options.authMiddleware ||
-    createAuthMiddleware({
-      authServiceUrl: config.authServiceUrl,
-      fetchImpl,
-    });
+  const inventoryRepository = repository || createInventoryRepository({ readRecords: createInventoryReadRecords() });
+  const inventoryService = service || createInventoryService({
+    repository: inventoryRepository,
+    nowProvider: () => now || new Date().toISOString()
+  });
+  const controller = createInventoryController({ service: inventoryService });
 
   app.use(cors());
   app.use(express.json());
-
   app.get('/', (_req, res) => {
-    res.json({ success: true, message: 'Inventory Service activo' });
+    res.send('Inventory Service funcionando 🚀');
   });
-
-  app.use('/api/inventory', authMiddleware, createInventoryRoutes(controller));
-
-  app.use((err, _req, res, _next) => {
-    res.status(err.status || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message || 'Error interno del servidor',
-      },
-    });
+  app.use('/inventory', createInventoryRouter({ controller }));
+  app.use((error, _req, res, _next) => {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Internal server error' });
   });
 
   return app;
 }
 
-module.exports = { createApp };
+module.exports = {
+  createApp
+};

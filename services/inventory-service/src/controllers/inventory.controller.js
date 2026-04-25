@@ -1,42 +1,27 @@
-const {
-  parseMovementFilters,
-  validateCreateMovementPayload,
-} = require('../models/inventory.model');
+const { ValidationError } = require('../models/inventory.model');
 
-function sendSuccess(res, status, payload) {
-  res.status(status).json({
-    success: true,
-    data: payload.data ?? payload,
-  });
-}
+function createInventoryController({ service }) {
+  return {
+    async getAlerts(req, res, next) {
+      try {
+        const result = await service.getActiveAlerts({
+          type: req.query.type,
+          categoryId: req.query.categoryId
+        });
 
-class InventoryController {
-  constructor(inventoryService) {
-    this.inventoryService = inventoryService;
-  }
+        res.status(200).json(result);
+      } catch (error) {
+        if (error instanceof ValidationError || error.statusCode === 400) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
 
-  registerMovement = async (req, res, next) => {
-    try {
-      const payload = validateCreateMovementPayload(req.body);
-      const result = await this.inventoryService.registerMovement(payload, {
-        actor: req.authUser,
-      });
-
-      sendSuccess(res, 201, result);
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  listMovements = async (req, res, next) => {
-    try {
-      const filters = parseMovementFilters(req.query);
-      const result = await this.inventoryService.listMovements(filters);
-      sendSuccess(res, 200, result);
-    } catch (error) {
-      next(error);
+        next(error);
+      }
     }
   };
 }
 
-module.exports = { InventoryController };
+module.exports = {
+  createInventoryController
+};

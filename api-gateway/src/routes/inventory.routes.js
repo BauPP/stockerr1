@@ -1,96 +1,55 @@
-const { Router } = require('express');
+const express = require('express');
 
-const { ADMINISTRADOR, OPERADOR } = require('../../../shared/constants/roles');
+function buildUpstreamUrl(baseUrl, path, query = {}) {
+  const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
 
-function buildProxyUrl(baseUrl, path, query) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(query || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      searchParams.append(key, value);
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
     }
   });
 
-  const queryString = searchParams.toString();
-  return `${baseUrl}${path}${queryString ? `?${queryString}` : ''}`;
+  return url;
 }
 
-async function proxyToInventoryService(req, res, inventoryServiceUrl, path, method, fetchImpl) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (req.headers.authorization) {
-    headers.Authorization = req.headers.authorization;
-  }
-  if (req.authUser?.id_usuario) {
-    headers['x-user-id'] = String(req.authUser.id_usuario);
-  }
-  if (req.authUser?.rol) {
-    headers['x-user-role'] = String(req.authUser.rol);
-  }
-  if (req.authUser?.nombre) {
-    headers['x-user-name'] = String(req.authUser.nombre);
+async function sendProxyResponse(upstreamResponse, res) {
+  const text = await upstreamResponse.text();
+  const contentType = upstreamResponse.headers?.get?.('content-type') || 'application/json';
+
+  res.status(upstreamResponse.status);
+
+  if (contentType.includes('application/json')) {
+    res.json(text ? JSON.parse(text) : {});
+    return;
   }
 
-  const response = await fetchImpl(buildProxyUrl(inventoryServiceUrl, path, req.query), {
-    method,
-    headers,
-    body: method === 'POST' || method === 'PUT' ? JSON.stringify(req.body || {}) : undefined,
-  });
-
-  const data = await response.json();
-  return res.status(response.status).json(data);
+  res.type(contentType).send(text);
 }
 
-function requireRoles(allowedRoles) {
-  return function roleGuard(req, res, next) {
-    const role = req.authUser?.rol;
-    if (!allowedRoles.includes(role)) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'AUTH_FORBIDDEN',
-          message: 'No tiene permisos para esta operacion',
-        },
+function createInventoryRouter({ fetchImpl = fetch, servicesConfig }) {
+  const router = express.Router();
+
+  router.get('/alerts', async (req, res) => {
+    try {
+      const url = buildUpstreamUrl(servicesConfig.inventoryServiceUrl, '/inventory/alerts', req.query);
+      const upstreamResponse = await fetchImpl(url, {
+        method: 'GET',
+        headers: {
+          accept: 'application/json'
+        }
       });
+
+      await sendProxyResponse(upstreamResponse, res);
+    } catch (_error) {
+      res.status(502).json({ error: 'Inventory service unavailable' });
     }
-
-    return next();
-  };
-}
-
-function createInventoryRoutes({ inventoryServiceUrl, authMiddleware, fetchImpl = fetch }) {
-  const router = Router();
-
-  router.get(
-    '/movements',
-    authMiddleware,
-    requireRoles([ADMINISTRADOR, OPERADOR]),
-    (req, res, next) =>
-      proxyToInventoryService(
-        req,
-        res,
-        inventoryServiceUrl,
-        '/api/inventory/movements',
-        'GET',
-        fetchImpl
-      ).catch(next)
-  );
-
-  router.post(
-    '/movements',
-    authMiddleware,
-    requireRoles([ADMINISTRADOR, OPERADOR]),
-    (req, res, next) =>
-      proxyToInventoryService(
-        req,
-        res,
-        inventoryServiceUrl,
-        '/api/inventory/movements',
-        'POST',
-        fetchImpl
-      ).catch(next)
-  );
+  });
 
   return router;
 }
 
-module.exports = { createInventoryRoutes };
+module.exports = {
+  buildUpstreamUrl,
+  createInventoryRouter,
+  sendProxyResponse
+};

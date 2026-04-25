@@ -1,12 +1,13 @@
-const { Router } = require('express');
+const express = require('express');
 
-function createInventoryRoutes(controller) {
-  const router = Router();
+function createInventoryRouter({ controller }) {
+  const router = express.Router();
 
-  router.post('/movements', controller.registerMovement);
-  router.get('/movements', controller.listMovements);
+  router.get('/alerts', controller.getAlerts);
 
   return router;
 }
 
-module.exports = { createInventoryRoutes };
+module.exports = {
+  createInventoryRouter
+};

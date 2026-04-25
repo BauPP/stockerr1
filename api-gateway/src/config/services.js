@@ -1,15 +1,9 @@
-require('dotenv').config();
-
-function buildServiceConfig(overrides = {}) {
+function createServicesConfig(overrides = {}) {
   return {
-    authServiceUrl: overrides.authServiceUrl || process.env.AUTH_SERVICE_URL || 'http://localhost:3002',
-    categoryServiceUrl:overrides.categoryServiceUrl || process.env.CATEGORY_SERVICE_URL || 'http://localhost:3003',
-    userServiceUrl:overrides.userServiceUrl || process.env.USER_SERVICE_URL || 'http://localhost:3004',
-    productServiceUrl: overrides.productServiceUrl || process.env.PRODUCT_SERVICE_URL || 'http://localhost:3001',
-    inventoryServiceUrl:
-      overrides.inventoryServiceUrl || process.env.INVENTORY_SERVICE_URL || 'http://localhost:3005',
-    auditServiceUrl: overrides.auditServiceUrl || process.env.AUDIT_SERVICE_URL || 'http://localhost:3006',
+    inventoryServiceUrl: overrides.inventoryServiceUrl || process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:3004'
   };
 }
 
-module.exports = { buildServiceConfig };
+module.exports = {
+  createServicesConfig
+};
