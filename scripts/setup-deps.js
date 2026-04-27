@@ -6,8 +6,11 @@ const rootDir = path.resolve(__dirname, '..');
 const targets = [
   { name: 'Raíz del proyecto', dir: rootDir },
   { name: 'Auth Service', dir: path.join(rootDir, 'services', 'auth-service') },
-{ name: 'User Service', dir: path.join(rootDir, 'services', 'user-service') },
+  { name: 'User Service', dir: path.join(rootDir, 'services', 'user-service') },
   { name: 'Category Service', dir: path.join(rootDir, 'services', 'category-service') },
+  { name: 'Product Service', dir: path.join(rootDir, 'services', 'product-service') },
+  { name: 'Inventory Service', dir: path.join(rootDir, 'services', 'inventory-service') },
+  { name: 'Audit Service', dir: path.join(rootDir, 'services', 'audit-service') },
   { name: 'API Gateway', dir: path.join(rootDir, 'api-gateway') },
 ];
 
