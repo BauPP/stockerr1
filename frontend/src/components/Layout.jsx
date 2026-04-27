@@ -92,6 +92,7 @@ const NAV_ADMIN = [
   { to: '/productos',  icon: <Icon.Box />,     label: 'Productos' },      
   { to: '/inventario',     icon: <Icon.Receipt />, label: 'Inventario' },
   { to: '/alertas',    icon: <Icon.Alert />,   label: 'Alertas' },
+  { to: '/auditoria',  icon: <Icon.History />, label: 'Auditoría' },
   { to: '/reportes',   icon: <Icon.Chart />,   label: 'Reportes' },
 ]
  
