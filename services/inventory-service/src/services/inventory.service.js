@@ -128,9 +128,27 @@ class InventoryService {
 
   /**
    * Calcula el stock posterior aplicando la regla del tipo de movimiento.
-   * Lanza 422 si la operación dejaría stock negativo (regla del dominio).
+   * Reglas:
+   *   - Entrada: suma cantidad.
+   *   - Salida: resta cantidad. Lanza 422 si:
+   *       * dejaría stock negativo (INSUFFICIENT_STOCK), o
+   *       * dejaría stock por debajo de stock_minimo del producto
+   *         (BELOW_MINIMUM_STOCK), salvo que `force=true` (override Admin).
+   *   - Ajuste: suma o resta según tipo. Lanza 422 si dejaría negativo.
+   *     Los ajustes NO validan stock_minimo: son correcciones de
+   *     inventario real (faltantes legítimos pueden quedar bajo mínimo).
+   *
+   * @param {object} payload    Payload del movimiento ya validado.
+   * @param {number} stockAnterior
+   * @param {object} [options]
+   * @param {number} [options.stockMinimo]   Stock mínimo del producto (puede
+   *   ser null/undefined si el producto no lo define).
+   * @param {boolean} [options.force=false]  Si true, salta la validación de
+   *   stock_minimo. Solo usado por Administrador vía query ?force=true.
+   * @param {string}  [options.actorRole]    Rol del actor (para permitir
+   *   force solo si es Administrador).
    */
-  buildNextStock(payload, stockAnterior) {
+  buildNextStock(payload, stockAnterior, options = {}) {
     if (payload.tipo_movimiento === MOVEMENT_TYPES.ENTRY) {
       return stockAnterior + payload.cantidad;
     }
@@ -143,7 +161,27 @@ class InventoryService {
           'Stock insuficiente para registrar la salida'
         );
       }
-      return stockAnterior - payload.cantidad;
+
+      const stockPosterior = stockAnterior - payload.cantidad;
+      const minimo = options.stockMinimo;
+      const canForce = options.force === true && options.actorRole === ADMINISTRADOR;
+
+      // Solo bloqueamos si se conoce el mínimo y la salida lo cruza.
+      if (
+        typeof minimo === 'number' &&
+        Number.isFinite(minimo) &&
+        stockPosterior < minimo &&
+        !canForce
+      ) {
+        throw createHttpError(
+          422,
+          'BELOW_MINIMUM_STOCK',
+          `La salida dejaría el stock (${stockPosterior}) por debajo del mínimo permitido (${minimo}). ` +
+            'Un Administrador puede forzar la operación con ?force=true si es estrictamente necesario.'
+        );
+      }
+
+      return stockPosterior;
     }
 
     // Ajuste
@@ -166,8 +204,14 @@ class InventoryService {
    * Registra un movimiento dentro de una transacción. Después de commit,
    * dispara el webhook a MS-09 (audit-service) en fire-and-forget para no
    * acoplar la latencia del cliente al pipeline de auditoría.
+   *
+   * @param {object} payload    Payload del movimiento (validado).
+   * @param {object} context
+   * @param {object} context.actor       Usuario autenticado.
+   * @param {boolean} [context.force]    Si true y el actor es Administrador,
+   *   permite cruzar el stock mínimo en una salida (override controlado).
    */
-  async registerMovement(payload, { actor }) {
+  async registerMovement(payload, { actor, force = false }) {
     this.assertPermissions(payload.tipo_movimiento, actor);
 
     const persisted = await this.repository.runInTransaction(async (trx) => {
@@ -188,7 +232,15 @@ class InventoryService {
       }
 
       const stockAnterior = Number(product.stock_actual || 0);
-      const stockPosterior = this.buildNextStock(payload, stockAnterior);
+      const stockMinimo =
+        product.stock_minimo === null || typeof product.stock_minimo === 'undefined'
+          ? null
+          : Number(product.stock_minimo);
+      const stockPosterior = this.buildNextStock(payload, stockAnterior, {
+        stockMinimo,
+        force,
+        actorRole: actor.rol,
+      });
       const reason = await this.repository.findReasonByPayload(payload, { trx });
 
       if (!reason) {

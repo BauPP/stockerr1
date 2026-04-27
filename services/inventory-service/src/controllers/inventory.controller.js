@@ -53,8 +53,13 @@ class InventoryController {
   registerMovement = async (req, res, next) => {
     try {
       const payload = validateCreateMovementPayload(req.body);
+      // ?force=true permite a Administrador cruzar el stock mínimo en salidas.
+      // El service valida que solo Admin pueda aplicar este override.
+      const force =
+        req.query.force === 'true' || req.query.force === '1' || req.query.force === true;
       const result = await this.inventoryService.registerMovement(payload, {
         actor: req.authUser,
+        force,
       });
 
       sendSuccess(res, 201, result);

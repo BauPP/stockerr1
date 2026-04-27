@@ -299,19 +299,58 @@ class PgInventoryRepository {
   }
 
   /**
-   * Stub del contrato de alertas (MS-06) para Postgres.
+   * Devuelve filas crudas de productos activos con la forma que el servicio
+   * de alertas (MS-06) consume: productId, productName, categoryId,
+   * currentStock, minStock, maxStock, expirationDate.
    *
-   * La derivación de alertas in-memory está cubierta por
-   * InMemoryInventoryRepository.getAlertSourceRows; la implementación SQL
-   * real se delega a una historia futura porque la tabla `productos` aún no
-   * tiene columna fecha_vencimiento ni stock_maximo en el esquema de main.
+   * El servicio de alertas (createInventoryService.getActiveAlerts) deriva
+   * de cada fila las posibles variantes de alerta:
+   *   - low-stock      → currentStock <= minStock
+   *   - high-stock     → currentStock >= maxStock
+   *   - expiring-soon  → fecha de vencimiento dentro de los próximos 7 días
    *
-   * Devolver [] en lugar de lanzar mantiene la app funcional: el endpoint
-   * /inventory/alerts responderá { data: [], meta: {...} } hasta que se
-   * implemente la query.
+   * Filtros soportados:
+   *   - filters.categoryId  → filtra a nivel SQL para no traer productos
+   *     de otras categorías cuando el usuario seleccionó una.
+   *
+   * Solo se devuelven productos con estado=true (activos).
    */
-  async getAlertSourceRows(_filters = {}) {
-    return [];
+  async getAlertSourceRows(filters = {}) {
+    const params = [];
+    const where = ['p.estado = true'];
+
+    if (filters.categoryId) {
+      params.push(filters.categoryId);
+      where.push(`p.id_categoria = $${params.length}`);
+    }
+
+    const query = `
+      SELECT
+        p.id_producto,
+        p.nombre,
+        p.id_categoria,
+        p.stock_actual,
+        p.stock_minimo,
+        p.stock_maximo,
+        p.fecha_vencimiento
+      FROM productos p
+      WHERE ${where.join(' AND ')}
+    `;
+
+    const { rows } = await this.pool.query(query, params);
+
+    // Mapea la fila SQL al "shape" que el servicio de alertas espera
+    // (camelCase). La derivación tolera valores null en min/max/fecha y
+    // simplemente no genera la alerta correspondiente cuando faltan datos.
+    return rows.map((row) => ({
+      productId: row.id_producto,
+      productName: row.nombre,
+      categoryId: row.id_categoria,
+      currentStock: row.stock_actual === null ? undefined : Number(row.stock_actual),
+      minStock: row.stock_minimo === null ? undefined : Number(row.stock_minimo),
+      maxStock: row.stock_maximo === null ? undefined : Number(row.stock_maximo),
+      expirationDate: row.fecha_vencimiento || null,
+    }));
   }
 }
 
