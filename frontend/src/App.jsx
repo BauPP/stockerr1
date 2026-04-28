@@ -7,6 +7,8 @@ import Categories from './pages/Categories/Categories.jsx'
 import UsersPage from './pages/Users/UsersPage.jsx'
 import ProductsPage from './pages/Products/ProductsPage.jsx'
 import Inventory from './pages/Inventory/Inventory.jsx'
+import AlertsPage from './pages/Alerts/AlertsPage'
+import Audit from './pages/Audit/Audit.jsx'
 
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -95,6 +97,24 @@ export default function App() {
             <Inventory />
           </Layout>
         </PrivateRoute>
+      } />
+
+      {/* MS-06 — Administrador y Operador (con rotación de rol en la vista) */}
+      <Route path="/alertas" element={
+        <PrivateRoute>
+          <Layout>
+            <AlertsPage />
+          </Layout>
+        </PrivateRoute>
+      } />
+
+      {/* MS-09 — Solo Administrador */}
+      <Route path="/auditoria" element={
+        <AdminRoute>
+          <Layout>
+            <Audit />
+          </Layout>
+        </AdminRoute>
       } />
 
     </Routes>
