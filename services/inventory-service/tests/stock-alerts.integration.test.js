@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const request = require('../../../api-gateway/node_modules/supertest');
+const request = require('supertest');
 
 const { createApp } = require('../src/app');
 

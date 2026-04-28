@@ -5,7 +5,9 @@
     "verify:ms02": "npm --prefix services/user-service test",
     "verify:ms04": "npm --prefix services/product-service test",
     "verify:ms05": "npm --prefix services/inventory-service test",
-    "verify:ms09": "npm --prefix services/audit-service test"
+    "verify:ms06": "npm --prefix services/inventory-service test",
+    "verify:ms09": "npm --prefix services/audit-service test",
+    "verify:gateway": "npm --prefix api-gateway test"
   },
   "dependencies": {
     "cors": "^2.8.6",
