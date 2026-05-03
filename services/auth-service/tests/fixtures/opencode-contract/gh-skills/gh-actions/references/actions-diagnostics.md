@@ -1,0 +1,1 @@
+Actions diagnostics fixture.
