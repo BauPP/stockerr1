@@ -23,6 +23,7 @@ const {
   ALERT_TYPES,
   EXPIRING_SOON_DAYS,
   MOVEMENT_TYPES,
+  REPORT_TYPES,
   ValidationError,
   calculateDaysToExpire,
   createDerivedAlert,
@@ -32,6 +33,87 @@ const {
   normalizeAlertFilters,
   toIsoString,
 } = require('../models/inventory.model');
+
+function normalizeSalesReason(value) {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized.includes('venta') ? 'venta' : normalized;
+}
+
+function toReportNumber(value) {
+  const normalized = Number(value || 0);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function roundCurrency(value) {
+  return Number(value.toFixed(2));
+}
+
+function buildReportSummary(items = []) {
+  return items.reduce(
+    (summary, item) => ({
+      total_items: summary.total_items + 1,
+      total_quantity: summary.total_quantity + toReportNumber(item.cantidad),
+      total_value: roundCurrency(summary.total_value + toReportNumber(item.valor_total)),
+    }),
+    {
+      total_items: 0,
+      total_quantity: 0,
+      total_value: 0,
+    }
+  );
+}
+
+const REPORT_COLUMNS = Object.freeze({
+  [REPORT_TYPES.MOVEMENTS]: [
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'tipo', label: 'Tipo' },
+    { key: 'motivo', label: 'Motivo' },
+    { key: 'cantidad', label: 'Cantidad' },
+    { key: 'stock_anterior', label: 'Stock anterior' },
+    { key: 'stock_posterior', label: 'Stock posterior' },
+    { key: 'usuario', label: 'Usuario' },
+  ],
+  [REPORT_TYPES.SALES]: [
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'tipo', label: 'Tipo' },
+    { key: 'cantidad', label: 'Cantidad' },
+    { key: 'precio_unitario', label: 'Precio unitario' },
+    { key: 'valor_total', label: 'Valor total' },
+  ],
+  [REPORT_TYPES.STOCK]: [
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'cantidad', label: 'Stock actual' },
+    { key: 'precio_unitario', label: 'Precio unitario' },
+    { key: 'valor_total', label: 'Valor inventario' },
+  ],
+});
+
+function buildReportPayload(reportType, filters, items) {
+  return {
+    meta: {
+      reportType,
+      generatedAt: new Date().toISOString(),
+      filters,
+    },
+    summary: buildReportSummary(items),
+    columns: REPORT_COLUMNS[reportType] || [],
+    items,
+  };
+}
 
 // ===========================================================================
 // MS-09 — Servicio de movimientos
@@ -315,6 +397,21 @@ class InventoryService {
       items: result.items.map((movement) => formatMovementResponse(movement)),
     };
   }
+
+  async getMovementReport(filters) {
+    const items = await this.repository.getMovementReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.MOVEMENTS, filters, items);
+  }
+
+  async getSalesReport(filters) {
+    const items = await this.repository.getSalesReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.SALES, filters, items);
+  }
+
+  async getStockReport(filters) {
+    const items = await this.repository.getStockReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.STOCK, filters, items);
+  }
 }
 
 // ===========================================================================
@@ -416,8 +513,10 @@ module.exports = {
   ALERT_TYPES,
   EXPIRING_SOON_DAYS,
   applyAlertFilters,
+  buildReportSummary,
   createInventoryService,
   deriveAlerts,
   describeInventoryAlertSourceShape,
+  normalizeSalesReason,
   normalizeAlertFilters,
 };

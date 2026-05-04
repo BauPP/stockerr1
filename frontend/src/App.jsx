@@ -9,6 +9,7 @@ import ProductsPage from './pages/Products/ProductsPage.jsx'
 import Inventory from './pages/Inventory/Inventory.jsx'
 import AlertsPage from './pages/Alerts/AlertsPage'
 import Audit from './pages/Audit/Audit.jsx'
+import ReportsPage from './pages/Reports/ReportsPage.jsx'
 
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -104,6 +105,14 @@ export default function App() {
         <PrivateRoute>
           <Layout>
             <AlertsPage />
+          </Layout>
+        </PrivateRoute>
+      } />
+
+      <Route path="/reportes" element={
+        <PrivateRoute>
+          <Layout>
+            <ReportsPage />
           </Layout>
         </PrivateRoute>
       } />
