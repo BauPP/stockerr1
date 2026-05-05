@@ -28,6 +28,14 @@ const DATASET_ORDER = [
   DATASETS.CATEGORIAS,
 ];
 
+const DATASET_LABELS = Object.freeze({
+  [DATASETS.PRODUCTOS]: 'Productos',
+  [DATASETS.MOVIMIENTOS]: 'Movimientos',
+  [DATASETS.PROVEEDORES]: 'Proveedores',
+  [DATASETS.CATEGORIAS]: 'Categorias',
+  [DATASETS.TODO]: 'Exportacion completa',
+});
+
 const DATASET_ALIASES = Object.freeze({
   productos: DATASETS.PRODUCTOS,
   products: DATASETS.PRODUCTOS,
@@ -72,6 +80,19 @@ const SENSITIVE_KEYS = new Set([
   'api_key',
   'secret',
 ]);
+
+const EXPORT_THEME = Object.freeze({
+  navy: 'FF1F3A5F',
+  blue: 'FF2563EB',
+  lightBlue: 'FFEAF2FF',
+  green: 'FF0F766E',
+  gray900: 'FF111827',
+  gray700: 'FF374151',
+  gray500: 'FF6B7280',
+  gray200: 'FFE5E7EB',
+  gray100: 'FFF3F4F6',
+  white: 'FFFFFFFF',
+});
 
 class ExportError extends Error {
   constructor(status, code, message) {
@@ -250,6 +271,61 @@ function flattenValue(value) {
   return value;
 }
 
+function formatDisplayValue(value) {
+  const flattened = flattenValue(value);
+  if (typeof flattened === 'boolean') {
+    return flattened ? 'Si' : 'No';
+  }
+  if (typeof flattened === 'string' && flattened.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(flattened)) {
+    return flattened.slice(0, 10);
+  }
+  return flattened;
+}
+
+function titleCase(value) {
+  return normalizeString(value)
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (match) => match.toUpperCase());
+}
+
+function columnLabel(column) {
+  const customLabels = {
+    id_producto: 'ID producto',
+    id_movimiento: 'ID movimiento',
+    id_proveedor: 'ID proveedor',
+    id_categoria: 'ID categoria',
+    codigo_barras_unico: 'Codigo de barras',
+    nombre_categoria: 'Categoria',
+    precio_compra: 'Precio compra',
+    precio_venta: 'Precio venta',
+    stock_actual: 'Stock actual',
+    stock_minimo: 'Stock minimo',
+    stock_maximo: 'Stock maximo',
+    fecha_vencimiento: 'Fecha vencimiento',
+    fecha_creacion: 'Fecha creacion',
+    razon_social: 'Razon social',
+    nit_identificacion: 'NIT',
+    valor_total: 'Valor total',
+    precio_unitario: 'Precio unitario',
+    stock_anterior: 'Stock anterior',
+    stock_posterior: 'Stock posterior',
+  };
+  return customLabels[column] || titleCase(column);
+}
+
+function datasetLabel(dataset) {
+  return DATASET_LABELS[dataset] || titleCase(dataset);
+}
+
+function formatFilterValue(value) {
+  if (value === undefined || value === null || value === '') {
+    return 'No aplica';
+  }
+  return String(value);
+}
+
 function collectColumns(rows = []) {
   const columns = [];
   const seen = new Set();
@@ -302,41 +378,336 @@ function normalizeSheetName(name) {
   return name.replace(/[\\/*?:[\]]/g, '').slice(0, 31) || 'export';
 }
 
+function setWorksheetColumnWidths(worksheet, columns, rows) {
+  columns.forEach((column, index) => {
+    const sampleValues = rows.slice(0, 250).map((row) => String(formatDisplayValue(row[column]) || ''));
+    const maxContentLength = Math.max(columnLabel(column).length, ...sampleValues.map((value) => value.length));
+    worksheet.getColumn(index + 1).width = Math.min(44, Math.max(14, maxContentLength + 3));
+  });
+}
+
+function styleExcelHeaderRow(row) {
+  row.height = 24;
+  row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: EXPORT_THEME.white }, size: 11 };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: EXPORT_THEME.navy },
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    cell.border = {
+      top: { style: 'thin', color: { argb: EXPORT_THEME.navy } },
+      left: { style: 'thin', color: { argb: EXPORT_THEME.navy } },
+      bottom: { style: 'thin', color: { argb: EXPORT_THEME.navy } },
+      right: { style: 'thin', color: { argb: EXPORT_THEME.navy } },
+    };
+  });
+}
+
+function styleExcelDataRow(row, rowIndex) {
+  row.eachCell((cell) => {
+    cell.alignment = { vertical: 'top', wrapText: true };
+    cell.border = {
+      bottom: { style: 'thin', color: { argb: EXPORT_THEME.gray200 } },
+    };
+    if (rowIndex % 2 === 0) {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: EXPORT_THEME.gray100 },
+      };
+    }
+  });
+}
+
+function addSummaryWorksheet(workbook, dataByDataset, meta) {
+  const worksheet = workbook.addWorksheet('Resumen', {
+    properties: { tabColor: { argb: EXPORT_THEME.blue } },
+    views: [{ showGridLines: false }],
+  });
+
+  worksheet.mergeCells('A1:D1');
+  worksheet.getCell('A1').value = 'STOCKERR - Exportacion de datos';
+  worksheet.getCell('A1').font = { bold: true, size: 18, color: { argb: EXPORT_THEME.white } };
+  worksheet.getCell('A1').fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: EXPORT_THEME.navy },
+  };
+  worksheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+  worksheet.getRow(1).height = 32;
+
+  const infoRows = [
+    ['Conjunto solicitado', datasetLabel(meta.conjunto_datos)],
+    ['Formato', meta.formato.toUpperCase()],
+    ['Generado', meta.generatedAt],
+    ['Total registros', meta.total_registros],
+    ['Fecha inicio', formatFilterValue(meta.filtros.fecha_inicio)],
+    ['Fecha fin', formatFilterValue(meta.filtros.fecha_fin)],
+    ['Categoria', formatFilterValue(meta.filtros.id_categoria)],
+  ];
+
+  infoRows.forEach(([label, value], index) => {
+    const row = worksheet.getRow(index + 3);
+    row.values = [label, value];
+    row.getCell(1).font = { bold: true, color: { argb: EXPORT_THEME.gray700 } };
+    row.getCell(2).font = { color: { argb: EXPORT_THEME.gray900 } };
+  });
+
+  const tableStart = 12;
+  worksheet.getRow(tableStart).values = ['Entidad', 'Registros'];
+  styleExcelHeaderRow(worksheet.getRow(tableStart));
+
+  Object.entries(dataByDataset).forEach(([dataset, rows], index) => {
+    const row = worksheet.getRow(tableStart + index + 1);
+    row.values = [datasetLabel(dataset), rows.length];
+    styleExcelDataRow(row, index);
+  });
+
+  worksheet.columns = [{ width: 28 }, { width: 22 }, { width: 18 }, { width: 18 }];
+}
+
 async function writeExcel(filePath, dataByDataset, meta) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'STOCKERR MS-12';
+  workbook.lastModifiedBy = 'STOCKERR MS-12';
   workbook.created = new Date(meta.generatedAt);
+  workbook.modified = new Date(meta.generatedAt);
+  workbook.subject = 'Exportacion masiva de datos';
+  workbook.title = `Exportacion ${datasetLabel(meta.conjunto_datos)}`;
+
+  addSummaryWorksheet(workbook, dataByDataset, meta);
 
   Object.entries(dataByDataset).forEach(([dataset, rows]) => {
     if (rows.length === 0) {
       return;
     }
 
-    const worksheet = workbook.addWorksheet(normalizeSheetName(dataset));
-    const columns = collectColumns(rows);
-    worksheet.columns = columns.map((column) => ({
-      header: column,
-      key: column,
-      width: Math.min(40, Math.max(12, column.length + 4)),
-    }));
-    rows.forEach((row) => {
-      worksheet.addRow(
-        columns.reduce((item, column) => {
-          item[column] = flattenValue(row[column]);
-          return item;
-        }, {})
-      );
+    const worksheet = workbook.addWorksheet(normalizeSheetName(datasetLabel(dataset)), {
+      properties: { tabColor: { argb: EXPORT_THEME.green } },
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: false }],
     });
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+    const columns = collectColumns(rows);
+    if (columns.length === 0) {
+      columns.push('registro');
+    }
+    const lastColumnLetter = worksheet.getColumn(columns.length || 1).letter;
+
+    worksheet.mergeCells(`A1:${lastColumnLetter}1`);
+    worksheet.getCell('A1').value = datasetLabel(dataset);
+    worksheet.getCell('A1').font = { bold: true, size: 16, color: { argb: EXPORT_THEME.white } };
+    worksheet.getCell('A1').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: EXPORT_THEME.navy },
+    };
+    worksheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(1).height = 30;
+
+    worksheet.mergeCells(`A2:${lastColumnLetter}2`);
+    worksheet.getCell('A2').value = `Generado: ${meta.generatedAt} | Registros: ${rows.length}`;
+    worksheet.getCell('A2').font = { italic: true, color: { argb: EXPORT_THEME.gray700 } };
+    worksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+    worksheet.getRow(4).values = columns.map(columnLabel);
+    styleExcelHeaderRow(worksheet.getRow(4));
+
+    rows.forEach((row, index) => {
+      const excelRow = worksheet.addRow(
+        columns.map((column) => (column === 'registro' ? index + 1 : formatDisplayValue(row[column])))
+      );
+      styleExcelDataRow(excelRow, excelRow.number);
+    });
+
+    setWorksheetColumnWidths(worksheet, columns, rows);
+    worksheet.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4 + rows.length, column: columns.length },
+    };
   });
 
   await workbook.xlsx.writeFile(filePath);
 }
 
+function pdfColor(color) {
+  return `#${color.slice(-6)}`;
+}
+
+function truncateText(value, maxLength = 42) {
+  const text = String(formatDisplayValue(value) || '');
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+}
+
+function drawPdfHeader(doc, meta) {
+  const pageWidth = doc.page.width;
+  const left = doc.page.margins.left;
+  const top = doc.page.margins.top;
+  const contentWidth = pageWidth - left - doc.page.margins.right;
+
+  doc.rect(0, 0, pageWidth, 72).fill(pdfColor(EXPORT_THEME.navy));
+  doc
+    .fillColor(pdfColor(EXPORT_THEME.white))
+    .fontSize(18)
+    .text('STOCKERR', left, top - 10, { continued: true })
+    .fontSize(12)
+    .text('  Exportacion de datos', { width: contentWidth });
+
+  doc
+    .fontSize(8)
+    .fillColor('#DDEBFF')
+    .text(`Generado: ${meta.generatedAt}`, left, top + 18, { width: contentWidth / 2 })
+    .text(`Registros: ${meta.total_registros}`, left + contentWidth / 2, top + 18, {
+      width: contentWidth / 2,
+      align: 'right',
+    });
+
+  doc.y = 92;
+}
+
+function drawPdfMeta(doc, meta) {
+  const left = doc.page.margins.left;
+  const cardTop = doc.y;
+  const cardWidth = doc.page.width - left - doc.page.margins.right;
+  const itemWidth = cardWidth / 4;
+  const items = [
+    ['Conjunto', datasetLabel(meta.conjunto_datos)],
+    ['Formato', meta.formato.toUpperCase()],
+    ['Fecha inicio', formatFilterValue(meta.filtros.fecha_inicio)],
+    ['Fecha fin', formatFilterValue(meta.filtros.fecha_fin)],
+  ];
+
+  doc.roundedRect(left, cardTop, cardWidth, 48, 6).fillAndStroke('#F8FAFC', '#E5E7EB');
+  items.forEach(([label, value], index) => {
+    const x = left + itemWidth * index + 12;
+    doc
+      .fillColor(pdfColor(EXPORT_THEME.gray500))
+      .fontSize(7)
+      .text(label.toUpperCase(), x, cardTop + 10, { width: itemWidth - 18 });
+    doc
+      .fillColor(pdfColor(EXPORT_THEME.gray900))
+      .fontSize(10)
+      .text(truncateText(value, 26), x, cardTop + 24, { width: itemWidth - 18 });
+  });
+
+  doc.y = cardTop + 66;
+}
+
+function drawPdfPageNumber(doc) {
+  const pageNumber = doc.bufferedPageRange().count;
+  const y = doc.page.height - doc.page.margins.bottom - 12;
+  doc
+    .fontSize(7)
+    .fillColor(pdfColor(EXPORT_THEME.gray500))
+    .text(
+      `Pagina ${pageNumber}`,
+      doc.page.margins.left,
+      y,
+      { width: doc.page.width - doc.page.margins.left - doc.page.margins.right, align: 'right' }
+    );
+}
+
+function ensurePdfSpace(doc, neededHeight, meta) {
+  const bottom = doc.page.height - doc.page.margins.bottom - 24;
+  if (doc.y + neededHeight <= bottom) {
+    return;
+  }
+
+  drawPdfPageNumber(doc);
+  doc.addPage();
+  drawPdfHeader(doc, meta);
+}
+
+function drawPdfTable(doc, dataset, rows, meta) {
+  const columns = collectColumns(rows).slice(0, 8);
+  const left = doc.page.margins.left;
+  const contentWidth = doc.page.width - left - doc.page.margins.right;
+  const rowHeight = 22;
+  const headerHeight = 24;
+  const columnWidth = contentWidth / Math.max(columns.length, 1);
+  const maxRows = 500;
+
+  ensurePdfSpace(doc, 56, meta);
+  doc
+    .fillColor(pdfColor(EXPORT_THEME.navy))
+    .fontSize(14)
+    .text(datasetLabel(dataset), left, doc.y, { width: contentWidth });
+  doc
+    .fillColor(pdfColor(EXPORT_THEME.gray500))
+    .fontSize(8)
+    .text(`${rows.length} registros`, left, doc.y + 2, { width: contentWidth });
+  doc.moveDown(0.8);
+
+  const headerY = doc.y;
+  doc.rect(left, headerY, contentWidth, headerHeight).fill(pdfColor(EXPORT_THEME.navy));
+  columns.forEach((column, index) => {
+    doc
+      .fillColor(pdfColor(EXPORT_THEME.white))
+      .fontSize(7.5)
+      .text(columnLabel(column), left + columnWidth * index + 5, headerY + 7, {
+        width: columnWidth - 10,
+        height: headerHeight - 8,
+        ellipsis: true,
+      });
+  });
+  doc.y = headerY + headerHeight;
+
+  rows.slice(0, maxRows).forEach((row, rowIndex) => {
+    ensurePdfSpace(doc, rowHeight + headerHeight, meta);
+    const y = doc.y;
+    doc
+      .rect(left, y, contentWidth, rowHeight)
+      .fill(rowIndex % 2 === 0 ? '#FFFFFF' : '#F8FAFC');
+    columns.forEach((column, columnIndex) => {
+      doc
+        .fillColor(pdfColor(EXPORT_THEME.gray900))
+        .fontSize(7)
+        .text(truncateText(row[column], 38), left + columnWidth * columnIndex + 5, y + 6, {
+          width: columnWidth - 10,
+          height: rowHeight - 8,
+          ellipsis: true,
+        });
+    });
+    doc
+      .moveTo(left, y + rowHeight)
+      .lineTo(left + contentWidth, y + rowHeight)
+      .strokeColor('#E5E7EB')
+      .lineWidth(0.4)
+      .stroke();
+    doc.y = y + rowHeight;
+  });
+
+  if (rows.length > maxRows) {
+    doc.moveDown(0.6);
+    doc
+      .fillColor(pdfColor(EXPORT_THEME.gray700))
+      .fontSize(8)
+      .text(`Vista previa limitada a ${maxRows} filas. El total de registros de esta entidad es ${rows.length}.`);
+  }
+
+  if (collectColumns(rows).length > columns.length) {
+    doc.moveDown(0.2);
+    doc
+      .fillColor(pdfColor(EXPORT_THEME.gray700))
+      .fontSize(8)
+  }
+
+  doc.moveDown(1.4);
+}
+
 async function writePdf(filePath, dataByDataset, meta) {
   await new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 36, size: 'A4' });
+    const doc = new PDFDocument({
+      margin: 36,
+      size: 'A4',
+      layout: 'landscape',
+      bufferPages: true,
+      info: {
+        Title: `Exportacion ${datasetLabel(meta.conjunto_datos)}`,
+        Author: 'STOCKERR MS-12',
+        Subject: 'Exportacion masiva de datos',
+      },
+    });
     const stream = fs.createWriteStream(filePath);
 
     stream.on('finish', resolve);
@@ -344,40 +715,17 @@ async function writePdf(filePath, dataByDataset, meta) {
     doc.on('error', reject);
     doc.pipe(stream);
 
-    doc.fontSize(16).text('STOCKERR - Exportacion de datos', { underline: true });
-    doc.moveDown(0.5);
-    doc.fontSize(9).text(`Conjunto: ${meta.conjunto_datos}`);
-    doc.text(`Formato solicitado: ${meta.formato}`);
-    doc.text(`Generado: ${meta.generatedAt}`);
-    doc.text(`Total registros: ${meta.total_registros}`);
-    doc.moveDown();
+    drawPdfHeader(doc, meta);
+    drawPdfMeta(doc, meta);
 
-    Object.entries(dataByDataset).forEach(([dataset, rows], datasetIndex) => {
+    Object.entries(dataByDataset).forEach(([dataset, rows]) => {
       if (rows.length === 0) {
         return;
       }
-      if (datasetIndex > 0) {
-        doc.addPage();
-      }
-
-      doc.fontSize(13).text(dataset.toUpperCase());
-      doc.fontSize(9).text(`Registros: ${rows.length}`);
-      doc.moveDown(0.5);
-
-      const columns = collectColumns(rows).slice(0, 8);
-      rows.slice(0, 250).forEach((row, index) => {
-        const line = columns
-          .map((column) => `${column}: ${flattenValue(row[column])}`)
-          .join(' | ');
-        doc.text(`${index + 1}. ${line}`, { width: 520 });
-      });
-
-      if (rows.length > 250) {
-        doc.moveDown(0.5);
-        doc.text(`Se omitio la vista previa de ${rows.length - 250} registros adicionales.`);
-      }
+      drawPdfTable(doc, dataset, rows, meta);
     });
 
+    drawPdfPageNumber(doc);
     doc.end();
   });
 }

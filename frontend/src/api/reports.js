@@ -93,18 +93,34 @@ export async function getReport(reportType, filters = {}) {
 }
 
 export function normalizeCatalogResponse({ categoriesResponse, productsResponse }) {
-  return {
-    categories: pickFirstArray([
-      categoriesResponse?.data?.categorias,
-      categoriesResponse?.data?.categories,
-      categoriesResponse?.data,
-    ]),
-    products: pickFirstArray([
-      productsResponse?.data?.productos,
-      productsResponse?.data?.items,
-      productsResponse?.data,
-    ]),
-  }
+  const rawCats = pickFirstArray([
+    categoriesResponse?.data?.categorias,
+    categoriesResponse?.data?.categories,
+    categoriesResponse?.data,
+  ])
+
+  const rawProds = pickFirstArray([
+    productsResponse?.data?.productos,
+    productsResponse?.data?.items,
+    productsResponse?.data,
+  ])
+
+  // Normaliza el id de categoría independientemente del nombre del campo
+  const categories = rawCats.map(c => ({
+    ...c,
+    id_categoria:      c.id_categoria ?? c.id ?? c.id_cat ?? c.categoria_id,
+    nombre_categoria:  c.nombre_categoria ?? c.nombre ?? c.name ?? c.categoria,
+  }))
+
+  // Normaliza el id de producto independientemente del nombre del campo
+  const products = rawProds.map(p => ({
+    ...p,
+    id_producto:  p.id_producto ?? p.id ?? p.producto_id,
+    id_categoria: p.id_categoria ?? p.categoria_id ?? p.id_cat,
+    nombre:       p.nombre ?? p.name ?? p.producto,
+  }))
+
+  return { categories, products }
 }
 
 export async function getReportFiltersCatalog() {

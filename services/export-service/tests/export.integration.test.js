@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const request = require('supertest');
+const ExcelJS = require('exceljs');
 
 const { createApp } = require('../src/app');
 const { MAX_EXPORT_RECORDS } = require('../src/services/export.service');
@@ -112,6 +113,14 @@ test('POST /api/export genera Excel con extension xlsx', async () => {
   assert.equal(response.body.slice(0, 2).toString('ascii'), 'PK');
   assert.match(response.headers['content-disposition'], /categorias_2026-05-04\.xlsx/);
   assert.equal(response.headers['x-export-records'], '1');
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(response.body);
+  assert.ok(workbook.getWorksheet('Resumen'));
+  assert.ok(workbook.getWorksheet('Categorias'));
+  assert.equal(workbook.getWorksheet('Resumen').getCell('A1').value, 'STOCKERR - Exportacion de datos');
+  assert.equal(workbook.getWorksheet('Categorias').getCell('A1').value, 'Categorias');
+  assert.equal(workbook.getWorksheet('Categorias').getCell('A4').value, 'ID categoria');
 });
 
 test('POST /api/export toma movimientos desde el reporte de MS-07', async () => {
