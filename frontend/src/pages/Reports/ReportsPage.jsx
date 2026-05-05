@@ -259,7 +259,11 @@ export default function ReportsPage() {
 
   function handleFilterChange(e) {
     const { name, value } = e.target
-    setFilters(prev => ({ ...prev, [name]: value }))
+    setFilters(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'categoria' ? { producto: '' } : {}),
+    }))
     setBannerMsg(null)
   }
 
@@ -395,11 +399,10 @@ export default function ReportsPage() {
                 value={filters.categoria}
                 onChange={handleFilterChange}
                 disabled={catalogLoading}
-                disabled={catalogLoading || !!filters.producto}
               >
                 <option value="">Todas</option>
                 {categories.map(c => (
-                  <option key={c.id_categoria} value={c.id_categoria}>
+                  <option key={`category-${c.id_categoria ?? c.nombre_categoria}`} value={c.id_categoria}>
                     {c.nombre_categoria}
                   </option>
                 ))}
@@ -415,11 +418,10 @@ export default function ReportsPage() {
                 value={filters.producto}
                 onChange={handleFilterChange}
                 disabled={catalogLoading}
-                 disabled={catalogLoading || !!filters.categoria}
               >
                 <option value="">Todos</option>
                 {filteredProducts.map(p => (
-                  <option key={p.id_producto} value={p.id_producto}>
+                  <option key={`product-${p.id_producto ?? p.nombre}`} value={p.id_producto}>
                     {p.nombre}
                   </option>
                 ))}

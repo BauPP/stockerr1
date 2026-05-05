@@ -39,8 +39,8 @@ function parseFilename(disposition, fallback) {
    ────────────────────────────────────────────────────────────── */
 export const REPORT_TYPE_TO_DATASET = {
   movements: 'movimientos',
-  sales:     'movimientos', // ventas son movimientos filtrados
-  stock:     'productos',
+  sales:     'ventas',
+  stock:     'stock',
 }
 
 /**
@@ -57,10 +57,12 @@ export const REPORT_TYPE_TO_DATASET = {
  */
 export function buildExportPayload({ reportType, filters = {}, formato }) {
   const conjunto_datos = REPORT_TYPE_TO_DATASET[reportType] ?? 'productos'
-  const payload = { conjunto_datos, formato }
+  const payload = { conjunto_datos, report_type: reportType, formato }
   if (filters.fecha_inicio) payload.fecha_inicio = filters.fecha_inicio
   if (filters.fecha_fin)    payload.fecha_fin    = filters.fecha_fin
   if (filters.categoria)    payload.id_categoria = Number(filters.categoria)
+  if (filters.producto)     payload.id_producto  = Number(filters.producto)
+  if (reportType === 'movements' && filters.tipo) payload.tipo = filters.tipo
   return payload
 }
 

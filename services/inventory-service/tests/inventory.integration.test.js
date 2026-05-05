@@ -590,3 +590,54 @@ test('GET /api/inventory/reports/sales incluye ventas con aliases observables de
   assert.equal(response.body.data.summary.total_quantity, 5);
   assert.equal(response.body.data.summary.total_value, 61);
 });
+
+test('GET /api/inventory/movements y reports mantienen la fecha local de Colombia', async () => {
+  const repository = new InMemoryInventoryRepository({
+    products: [
+      {
+        id_producto: 1,
+        nombre: 'Agua Mineral 500ml',
+        id_categoria: 1,
+        nombre_categoria: 'Bebidas',
+        precio_venta: 15,
+        stock_actual: 12,
+        estado: true,
+      },
+    ],
+    movements: [
+      {
+        id_movimiento: 1,
+        id_producto: 1,
+        nombre_producto: 'Agua Mineral 500ml',
+        movement_type: 'entrada',
+        cantidad: 10,
+        stock_anterior: 2,
+        stock_posterior: 12,
+        nombre_motivo: 'Compra / Reposición',
+        tipo_operacion: 'ENTRADA',
+        id_usuario: 1,
+        nombre_usuario: 'Admin Demo',
+        fecha_hora_exacta: '2026-05-05T02:15:00.000Z',
+      },
+    ],
+  });
+  const app = createApp({
+    repository,
+    notifier: { notifyMovementRegistered: async () => {} },
+    authMiddleware: createTestAuthMiddleware({
+      id_usuario: 10,
+      nombre: 'Operador Demo',
+      rol: 'Operador',
+    }),
+  });
+
+  const [movementsResponse, reportResponse] = await Promise.all([
+    request(app).get('/api/inventory/movements'),
+    request(app).get('/api/inventory/reports/movements'),
+  ]);
+
+  assert.equal(movementsResponse.status, 200);
+  assert.equal(reportResponse.status, 200);
+  assert.equal(movementsResponse.body.data.items[0].fecha, '2026-05-04');
+  assert.equal(reportResponse.body.data.items[0].fecha, '2026-05-04');
+});

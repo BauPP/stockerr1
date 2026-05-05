@@ -6,6 +6,7 @@ const {
   EXPIRING_SOON_DAYS,
   buildReportSummary,
   deriveAlerts,
+  getColombiaTimestamp,
   normalizeSalesReason,
   normalizeAlertFilters,
   describeInventoryAlertSourceShape
@@ -15,6 +16,11 @@ const {
   REPORT_TYPES,
   normalizeReportType,
 } = require('../src/models/inventory.model');
+
+test('getColombiaTimestamp conserva la fecha local de Colombia cuando UTC ya cambio de dia', () => {
+  const timestamp = getColombiaTimestamp(new Date('2026-05-05T02:15:00.000Z'));
+  assert.equal(timestamp, '2026-05-04 21:15:00');
+});
 
 test('deriveAlerts creates low-stock and high-stock alerts when thresholds are met', () => {
   const alerts = deriveAlerts([

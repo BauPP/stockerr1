@@ -16,6 +16,8 @@ const TEMP_FILE_TTL_MS = 60 * 60 * 1000;
 const DATASETS = Object.freeze({
   PRODUCTOS: 'productos',
   MOVIMIENTOS: 'movimientos',
+  VENTAS: 'ventas',
+  STOCK: 'stock',
   PROVEEDORES: 'proveedores',
   CATEGORIAS: 'categorias',
   TODO: 'todo',
@@ -31,6 +33,8 @@ const DATASET_ORDER = [
 const DATASET_LABELS = Object.freeze({
   [DATASETS.PRODUCTOS]: 'Productos',
   [DATASETS.MOVIMIENTOS]: 'Movimientos',
+  [DATASETS.VENTAS]: 'Ventas',
+  [DATASETS.STOCK]: 'Stock actual',
   [DATASETS.PROVEEDORES]: 'Proveedores',
   [DATASETS.CATEGORIAS]: 'Categorias',
   [DATASETS.TODO]: 'Exportacion completa',
@@ -41,6 +45,13 @@ const DATASET_ALIASES = Object.freeze({
   products: DATASETS.PRODUCTOS,
   movimientos: DATASETS.MOVIMIENTOS,
   movements: DATASETS.MOVIMIENTOS,
+  ventas: DATASETS.VENTAS,
+  venta: DATASETS.VENTAS,
+  sales: DATASETS.VENTAS,
+  sale: DATASETS.VENTAS,
+  stock: DATASETS.STOCK,
+  stock_actual: DATASETS.STOCK,
+  current_stock: DATASETS.STOCK,
   proveedores: DATASETS.PROVEEDORES,
   suppliers: DATASETS.PROVEEDORES,
   categorias: DATASETS.CATEGORIAS,
@@ -146,18 +157,51 @@ function normalizePositiveInteger(value, fieldName) {
   return normalized;
 }
 
+function normalizeOptionalReportType(value) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return undefined;
+  }
+
+  const reportType = DATASET_ALIASES[normalizeKey(value)];
+  if (![DATASETS.MOVIMIENTOS, DATASETS.VENTAS, DATASETS.STOCK].includes(reportType)) {
+    throw new ExportError(
+      400,
+      'VALIDATION_ERROR',
+      'report_type debe ser movements, sales o stock'
+    );
+  }
+  return reportType;
+}
+
+function normalizeOptionalMovementType(value) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return undefined;
+  }
+
+  const normalized = normalizeKey(value);
+  if (!['entrada', 'salida', 'ajuste'].includes(normalized)) {
+    throw new ExportError(
+      400,
+      'VALIDATION_ERROR',
+      'tipo debe ser entrada, salida o ajuste'
+    );
+  }
+  return normalized;
+}
+
 function normalizeExportRequest(body = {}) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new ExportError(400, 'VALIDATION_ERROR', 'El cuerpo de la solicitud es obligatorio');
   }
 
+  const reportDataset = normalizeOptionalReportType(body.report_type || body.reportType);
   const datasetKey = normalizeKey(body.conjunto_datos || body.dataset || body.entidad);
   const dataset = DATASET_ALIASES[datasetKey];
-  if (!dataset) {
+  if (!dataset && !reportDataset) {
     throw new ExportError(
       400,
       'VALIDATION_ERROR',
-      'conjunto_datos debe ser productos, movimientos, proveedores, categorias o todo'
+      'conjunto_datos debe ser productos, movimientos, ventas, stock, proveedores, categorias o todo'
     );
   }
 
@@ -178,12 +222,17 @@ function normalizeExportRequest(body = {}) {
   }
 
   return {
-    conjunto_datos: dataset,
+    conjunto_datos: reportDataset || dataset,
     formato: format,
     filters: {
       fecha_inicio,
       fecha_fin,
       id_categoria: normalizePositiveInteger(body.id_categoria, 'id_categoria'),
+      id_producto: normalizePositiveInteger(
+        body.id_producto || body.producto || body.productId,
+        'id_producto'
+      ),
+      tipo: normalizeOptionalMovementType(body.tipo || body.tipo_movimiento),
     },
   };
 }
@@ -819,16 +868,17 @@ class ExportService {
         FROM productos p
         JOIN categorias c ON c.id_categoria = p.id_categoria
         WHERE ($1::int IS NULL OR p.id_categoria = $1)
+          AND ($2::int IS NULL OR p.id_producto = $2)
         ORDER BY p.id_producto ASC
-        LIMIT $2
+        LIMIT $3
       `,
-      [filters.id_categoria || null, MAX_EXPORT_RECORDS + 1]
+      [filters.id_categoria || null, filters.id_producto || null, MAX_EXPORT_RECORDS + 1]
     );
     return rows;
   }
 
-  async getMovements(filters, context) {
-    const injected = await this.readFromInjectedSource(DATASETS.MOVIMIENTOS, filters, context);
+  async getInventoryReport(reportType, dataset, filters, context) {
+    const injected = await this.readFromInjectedSource(dataset, filters, context);
     if (injected) {
       return injected;
     }
@@ -837,10 +887,24 @@ class ExportService {
       fecha_inicio: filters.fecha_inicio,
       fecha_fin: filters.fecha_fin,
       categoria: filters.id_categoria,
+      producto: filters.id_producto,
+      tipo: reportType === 'movements' ? filters.tipo : undefined,
     };
-    const url = buildUrl(this.inventoryServiceUrl, '/api/inventory/reports/movements', query);
+    const url = buildUrl(this.inventoryServiceUrl, `/api/inventory/reports/${reportType}`, query);
     const payload = await this.requestJson(url, context);
     return extractRows(payload, ['items']);
+  }
+
+  async getMovements(filters, context) {
+    return this.getInventoryReport('movements', DATASETS.MOVIMIENTOS, filters, context);
+  }
+
+  async getSales(filters, context) {
+    return this.getInventoryReport('sales', DATASETS.VENTAS, filters, context);
+  }
+
+  async getStock(filters, context) {
+    return this.getInventoryReport('stock', DATASETS.STOCK, filters, context);
   }
 
   async getSuppliers(filters, context) {
@@ -889,6 +953,10 @@ class ExportService {
         dataByDataset[dataset] = await this.getProducts(request.filters, context);
       } else if (dataset === DATASETS.MOVIMIENTOS) {
         dataByDataset[dataset] = await this.getMovements(request.filters, context);
+      } else if (dataset === DATASETS.VENTAS) {
+        dataByDataset[dataset] = await this.getSales(request.filters, context);
+      } else if (dataset === DATASETS.STOCK) {
+        dataByDataset[dataset] = await this.getStock(request.filters, context);
       } else if (dataset === DATASETS.PROVEEDORES) {
         dataByDataset[dataset] = await this.getSuppliers(request.filters, context);
       } else if (dataset === DATASETS.CATEGORIAS) {

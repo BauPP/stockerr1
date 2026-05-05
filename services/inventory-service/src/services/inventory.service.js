@@ -57,6 +57,46 @@ function roundCurrency(value) {
   return Number(value.toFixed(2));
 }
 
+function formatDateInTimeZone(date = new Date(), timeZone = 'America/Bogota') {
+  const normalizedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(normalizedDate.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  })
+    .formatToParts(normalizedDate)
+    .reduce((accumulator, part) => {
+      accumulator[part.type] = part.value;
+      return accumulator;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function getColombiaTimestamp(date = new Date()) {
+  return formatDateInTimeZone(date, 'America/Bogota');
+}
+
+function formatColombiaDateTime(date) {
+  const formatted = formatDateInTimeZone(date, 'America/Bogota');
+  if (!formatted) {
+    return { fecha: null, hora: null };
+  }
+
+  const [fecha, hora = ''] = formatted.split(' ');
+  return { fecha, hora };
+}
+
 function buildReportSummary(items = []) {
   return items.reduce(
     (summary, item) => ({
@@ -147,12 +187,13 @@ function isActiveProvider(provider) {
  * fechas ISO completas vs. fecha+hora separadas, etc.).
  */
 function formatMovementResponse(movement, actorRoleOverride) {
-  const timestamp = new Date(movement.fecha_hora_exacta || movement.fecha_movimiento);
+  const timestamp = movement.fecha_hora_exacta || movement.fecha_movimiento;
+  const { fecha, hora } = formatColombiaDateTime(timestamp);
   return {
     id_movimiento: movement.id_movimiento,
     tipo: movement.movement_type || movement.tipo_movimiento,
-    fecha: timestamp.toISOString().slice(0, 10),
-    hora: timestamp.toISOString().slice(11, 19),
+    fecha,
+    hora,
     id_producto: movement.id_producto,
     nombre_producto: movement.nombre_producto,
     cantidad: Number(movement.cantidad),
@@ -173,9 +214,14 @@ function formatMovementResponse(movement, actorRoleOverride) {
 }
 
 class InventoryService {
-  constructor({ repository, notifier = { notifyMovementRegistered: async () => {} } }) {
+  constructor({
+    repository,
+    notifier = { notifyMovementRegistered: async () => {} },
+    nowProvider = () => new Date(),
+  }) {
     this.repository = repository;
     this.notifier = notifier;
+    this.nowProvider = nowProvider;
   }
 
   /**
@@ -345,7 +391,7 @@ class InventoryService {
           numero_factura: payload.numero_factura,
           comentarios: payload.comentario || payload.motivo_ajuste || payload.motivo,
           movement_type: payload.tipo_movimiento,
-          fecha_hora_exacta: new Date().toISOString(),
+          fecha_hora_exacta: getColombiaTimestamp(this.nowProvider()),
         },
         { trx }
       );
@@ -508,6 +554,7 @@ module.exports = {
   // MS-09
   InventoryService,
   formatMovementResponse,
+  getColombiaTimestamp,
 
   // MS-06
   ALERT_TYPES,

@@ -19,7 +19,24 @@ function toNumber(value) {
 }
 
 function toDateOnly(value) {
-  return new Date(value).toISOString().slice(0, 10);
+  const normalizedDate = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(normalizedDate.getTime())) {
+    return '';
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .formatToParts(normalizedDate)
+    .reduce((accumulator, part) => {
+      accumulator[part.type] = part.value;
+      return accumulator;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function cloneRecord(record) {
@@ -234,9 +251,10 @@ class PgInventoryRepository {
         stock_anterior,
         stock_posterior,
         numero_factura,
-        comentarios
+        comentarios,
+        fecha_hora_exacta
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamp)
       RETURNING
         id_movimiento,
         id_producto,
@@ -261,6 +279,7 @@ class PgInventoryRepository {
       payload.stock_posterior,
       payload.numero_factura || null,
       payload.comentarios || null,
+      payload.fecha_hora_exacta,
     ];
 
     const { rows } = await target.query(query, values);
@@ -682,7 +701,7 @@ class InMemoryInventoryRepository {
           return false;
         }
 
-        const movementDate = new Date(movement.fecha_hora_exacta).toISOString().slice(0, 10);
+        const movementDate = toDateOnly(movement.fecha_hora_exacta);
         if (filters.exactDate && movementDate !== filters.exactDate) {
           return false;
         }

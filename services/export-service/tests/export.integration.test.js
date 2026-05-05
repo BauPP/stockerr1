@@ -150,12 +150,84 @@ test('POST /api/export toma movimientos desde el reporte de MS-07', async () => 
 
   const response = await request(app)
     .post('/api/export')
-    .send({ conjunto_datos: 'movimientos', formato: 'CSV' });
+    .send({
+      conjunto_datos: 'movimientos',
+      report_type: 'movements',
+      formato: 'CSV',
+      fecha_inicio: '2026-05-01',
+      fecha_fin: '2026-05-04',
+      id_categoria: 3,
+      id_producto: 9,
+      tipo: 'entrada',
+    });
 
   assert.equal(response.status, 200);
   assert.ok(calls.some((call) => /\/api\/inventory\/reports\/movements/.test(call.url)));
+  assert.ok(calls.some((call) => /fecha_inicio=2026-05-01/.test(call.url)));
+  assert.ok(calls.some((call) => /fecha_fin=2026-05-04/.test(call.url)));
+  assert.ok(calls.some((call) => /categoria=3/.test(call.url)));
+  assert.ok(calls.some((call) => /producto=9/.test(call.url)));
+  assert.ok(calls.some((call) => /tipo=entrada/.test(call.url)));
   assert.ok(calls.some((call) => /\/api\/audit\/events/.test(call.url)));
   assert.match(response.text, /Cafe Premium/);
+});
+
+test('POST /api/export soporta ventas y stock desde reportes de MS-07 con filtros', async () => {
+  const calls = [];
+  const app = createTestApp({
+    fetchImpl: async (url, options) => {
+      calls.push({ url: url.toString(), options });
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        async json() {
+          return {
+            data: {
+              items: [
+                {
+                  producto: url.toString().includes('/stock') ? 'Cafe Stock' : 'Cafe Venta',
+                  cantidad: 5,
+                },
+              ],
+            },
+          };
+        },
+      };
+    },
+  });
+
+  const salesResponse = await request(app)
+    .post('/api/export')
+    .send({
+      conjunto_datos: 'ventas',
+      report_type: 'sales',
+      formato: 'CSV',
+      fecha_inicio: '2026-05-01',
+      fecha_fin: '2026-05-04',
+      id_categoria: 3,
+      id_producto: 9,
+    });
+
+  const stockResponse = await request(app)
+    .post('/api/export')
+    .send({
+      conjunto_datos: 'stock',
+      report_type: 'stock',
+      formato: 'CSV',
+      id_categoria: 3,
+      id_producto: 9,
+    });
+
+  assert.equal(salesResponse.status, 200);
+  assert.equal(stockResponse.status, 200);
+  assert.ok(calls.some((call) => /\/api\/inventory\/reports\/sales/.test(call.url)));
+  assert.ok(calls.some((call) => /\/api\/inventory\/reports\/stock/.test(call.url)));
+  assert.ok(calls.some((call) => /producto=9/.test(call.url)));
+  assert.match(salesResponse.headers['content-disposition'], /ventas_2026-05-04\.csv/);
+  assert.match(stockResponse.headers['content-disposition'], /stock_2026-05-04\.csv/);
+  assert.match(salesResponse.text, /Cafe Venta/);
+  assert.match(stockResponse.text, /Cafe Stock/);
 });
 
 test('POST /api/export bloquea usuarios no administradores', async () => {
