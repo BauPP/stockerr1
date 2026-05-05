@@ -31,3 +31,9 @@ Thumbs.db
 # Archivos de compilación/distribución
 dist/
 build/
+
+# Archivos exportados temporales (MS-07)
+storage/exports/temp/*
+storage/exports/reportes/*
+!storage/exports/temp/.gitkeep
+!storage/exports/reportes/.gitkeep
