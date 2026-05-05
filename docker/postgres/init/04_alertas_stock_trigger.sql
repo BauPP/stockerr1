@@ -166,8 +166,8 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_entidad
     ON public.auditoria_operaciones (entidad_afectada, id_entidad_afectada);
 
 -- Índice para el campo módulo (agregado por ensureSchema del audit-service)
-CREATE INDEX IF NOT EXISTS idx_auditoria_modulo_fecha
-    ON public.auditoria_operaciones (modulo, fecha_hora DESC);
+-- CREATE INDEX IF NOT EXISTS idx_auditoria_modulo_fecha
+--    ON public.auditoria_operaciones (modulo, fecha_hora DESC);
 
 -- -------------------------------------------------------
 -- VERIFICACIÓN
