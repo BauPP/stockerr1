@@ -3,6 +3,7 @@
 const { Router } = require('express');
 
 const { PERMISOS } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path, query = {}) {
   const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
@@ -77,14 +78,8 @@ function createExportRoutes({ exportServiceUrl, authMiddleware, fetchImpl = fetc
       }
 
       res.send(buffer);
-    } catch (_error) {
-      res.status(502).json({
-        success: false,
-        error: {
-          code: 'EXPORT_SERVICE_UNAVAILABLE',
-          message: 'No fue posible generar la exportacion',
-        },
-      });
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 

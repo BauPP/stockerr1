@@ -27,6 +27,7 @@ const { Router } = require('express');
 
 const { ADMINISTRADOR, OPERADOR, PERMISOS } = require('../../../shared/constants/roles');
 const { requireRoles } = require('../middlewares/role.middleware');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 /**
  * Construye una URL upstream con query string preservada.
@@ -150,8 +151,8 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
       });
 
       await sendProxyResponse(upstreamResponse, res);
-    } catch (_error) {
-      res.status(502).json({ error: 'Inventory service unavailable' });
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 
@@ -161,7 +162,7 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
   // El inventory-service de la rama MS-09 publica esto en /api/inventory/movements.
   // Cada movimiento registrado dispara un webhook al audit-service, completando
   // el flujo: acción → registro en auditoría.
-  router.get('/movements', ...guards, async (req, res, next) => {
+  router.get('/movements', ...guards, async (req, res) => {
     try {
       const upstreamUrl = buildProxyUrl(
         inventoryServiceUrl,
@@ -175,12 +176,12 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
         method: 'GET',
         fetchImpl,
       });
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 
-  router.post('/movements', ...guards, async (req, res, next) => {
+  router.post('/movements', ...guards, async (req, res) => {
     try {
       const upstreamUrl = buildProxyUrl(
         inventoryServiceUrl,
@@ -194,8 +195,8 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
         method: 'POST',
         fetchImpl,
       });
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 
@@ -217,8 +218,8 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
         method: 'GET',
         fetchImpl,
       });
-    } catch (_error) {
-      res.status(502).json({ error: 'Inventory service unavailable' });
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 

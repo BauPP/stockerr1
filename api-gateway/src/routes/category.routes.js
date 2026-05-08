@@ -1,6 +1,7 @@
 const { Router } = require('express');
 
 const { ADMINISTRADOR, OPERADOR } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path, query) {
   const searchParams = new URLSearchParams();
@@ -72,7 +73,7 @@ function createCategoryRoutes({ categoryServiceUrl, authMiddleware, fetchImpl = 
         '/api/categories',
         'GET',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.post(
@@ -87,7 +88,7 @@ function createCategoryRoutes({ categoryServiceUrl, authMiddleware, fetchImpl = 
         '/api/categories',
         'POST',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.put(
@@ -102,7 +103,7 @@ function createCategoryRoutes({ categoryServiceUrl, authMiddleware, fetchImpl = 
         `/api/categories/${req.params.id}`,
         'PUT',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.delete(
@@ -117,7 +118,7 @@ function createCategoryRoutes({ categoryServiceUrl, authMiddleware, fetchImpl = 
         `/api/categories/${req.params.id}`,
         'DELETE',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   return router;

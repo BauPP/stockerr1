@@ -2,6 +2,7 @@
 
 const { Router } = require('express');
 const { PERMISOS } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path) {
   return `${baseUrl}${path}`;
@@ -54,7 +55,7 @@ function createConfigRoutes({ configServiceUrl, authMiddleware, fetchImpl = fetc
     authMiddleware,
     requireRoles(PERMISOS.CONSULTAR_INVENTARIO),
     (req, res, next) =>
-      proxyToConfigService(req, res, configServiceUrl, '/api/config', 'GET', fetchImpl).catch(next)
+      proxyToConfigService(req, res, configServiceUrl, '/api/config', 'GET', fetchImpl      ).catch((err) => handleProxyError(err, res))
   );
 
   // PUT /api/config — solo Admin puede escribir
@@ -63,7 +64,7 @@ function createConfigRoutes({ configServiceUrl, authMiddleware, fetchImpl = fetc
     authMiddleware,
     requireRoles(PERMISOS.CONFIGURAR_SISTEMA),
     (req, res, next) =>
-      proxyToConfigService(req, res, configServiceUrl, '/api/config', 'PUT', fetchImpl).catch(next)
+      proxyToConfigService(req, res, configServiceUrl, '/api/config', 'PUT', fetchImpl      ).catch((err) => handleProxyError(err, res))
   );
 
   return router;

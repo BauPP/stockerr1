@@ -69,6 +69,7 @@ const { createInventoryRouter } = require('./routes/inventory.routes');
 const { createAuditRoutes } = require('./routes/audit.routes');
 const { createExportRoutes } = require('./routes/export.routes');
 const { createConfigRoutes } = require('./routes/config.routes');
+const { createSupplierRoutes } = require('./routes/supplier.routes');
 
 /**
  * Construye la app Express del gateway.
@@ -207,6 +208,15 @@ function createApp(options = {}) {
       authMiddleware,
       fetchImpl,
     })
+  );
+
+  // -----------------------------------------------------------------------
+  // /api/suppliers — placeholder para MS-10 (no implementado)
+  // Responde 501 en todas las operaciones
+  // -----------------------------------------------------------------------
+  app.use(
+    '/api/suppliers',
+    createSupplierRoutes()
   );
 
   // -----------------------------------------------------------------------

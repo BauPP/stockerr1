@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const { ADMINISTRADOR } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path, query) {
   const searchParams = new URLSearchParams();
@@ -31,7 +32,7 @@ function requireAdmin(req, res, next) {
 function createAuditRoutes({ auditServiceUrl, authMiddleware, fetchImpl = fetch }) {
   const router = Router();
 
-  router.get('/logs', authMiddleware, requireAdmin, async (req, res, next) => {
+  router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
     try {
       const response = await fetchImpl(buildProxyUrl(auditServiceUrl, '/api/audit/logs', req.query), {
         method: 'GET',
@@ -42,8 +43,8 @@ function createAuditRoutes({ auditServiceUrl, authMiddleware, fetchImpl = fetch 
 
       const data = await response.json();
       return res.status(response.status).json(data);
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      return handleProxyError(err, res);
     }
   });
 

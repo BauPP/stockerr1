@@ -1,0 +1,15 @@
+{
+  "name": "barcode-service",
+  "version": "1.0.0",
+  "description": "MS-08 Servicio de Códigos de Barras",
+  "main": "server.js",
+  "scripts": {
+    "test": "node -e \"console.log('[barcode-service] No hay tests implementados aún — baseline temporal')\"",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1"
+  }
+}
