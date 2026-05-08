@@ -10,13 +10,12 @@ function validateLoginPayload(body) {
     throw createHttpError(400, 'VALIDATION_ERROR', 'El cuerpo de la solicitud es obligatorio');
   }
 
-  const correo = body.correo || body.nombre_usuario || body.nombreUsuario;
-  const { contrasena } = body;
+  const { correo, contrasena } = body;
   if (!correo || !contrasena) {
     throw createHttpError(
       400,
       'VALIDATION_ERROR',
-      'correo o nombre_usuario y contrasena son obligatorios'
+      'correo y contrasena son obligatorios'
     );
   }
 

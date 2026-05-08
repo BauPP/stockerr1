@@ -9,6 +9,7 @@ const { PgUserRepository, InMemoryUserRepository } = require('./repositories/use
 const { createUserRoutes } = require('./routes/user.routes');
 const { UserAuditNotifier } = require('./services/user-audit-notifier.service');
 const { UserService } = require('./services/user.service');
+const { createVerifyJWT } = require('../../../shared/middlewares/verifyJWT');
 
 function createApp(options = {}) {
   const app = express();
@@ -38,6 +39,14 @@ function createApp(options = {}) {
 
   const controller = options.controller || new UserController(service);
 
+  const verifyJWT =
+    options.verifyJWT ||
+    createVerifyJWT({
+      authServiceUrl:
+        options.authServiceUrl || process.env.AUTH_SERVICE_URL || 'http://auth-service:3002',
+      fetchImpl,
+    });
+
   app.use(cors());
   app.use(express.json());
 
@@ -45,7 +54,7 @@ function createApp(options = {}) {
     res.json({ success: true, message: 'User Service activo' });
   });
 
-  app.use('/api/users', createUserRoutes(controller));
+  app.use('/api/users', verifyJWT, createUserRoutes(controller));
 
   app.use((err, _req, res, _next) => {
     res.status(err.status || 500).json({
