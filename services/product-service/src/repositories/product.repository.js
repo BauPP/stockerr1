@@ -262,6 +262,17 @@ class PgProductRepository {
   async softDeleteProduct(idProducto) {
     return this.updateProductPartial(idProducto, { estado: false });
   }
+
+  async listAllOptions() {
+    const query = `
+      SELECT id_producto, nombre, id_categoria, codigo_barras_unico
+      FROM productos
+      WHERE estado = true
+      ORDER BY nombre
+    `;
+    const { rows } = await this.pool.query(query);
+    return rows;
+  }
 }
 
 class InMemoryProductRepository {
@@ -369,6 +380,18 @@ class InMemoryProductRepository {
 
   async softDeleteProduct(idProducto) {
     return this.updateProductPartial(idProducto, { estado: false });
+  }
+
+  async listAllOptions() {
+    return this.products
+      .filter((item) => item.estado === true || item.estado === 'true')
+      .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)))
+      .map((item) => ({
+        id_producto: item.id_producto,
+        nombre: item.nombre,
+        id_categoria: item.id_categoria,
+        codigo_barras_unico: item.codigo_barras_unico || item.codigo_barras,
+      }));
   }
 
   async getRawById(idProducto) {

@@ -206,3 +206,69 @@ test('GET /api/products responde por debajo de 1000ms en escenario local', async
   assert.equal(response.status, 200);
   assert.equal(elapsedMs < 1000, true);
 });
+
+// ----------------------------------------------------------------
+// Product Options Endpoint — GET /api/products/options
+// ----------------------------------------------------------------
+
+test('GET /api/products/options devuelve todos los productos activos', async () => {
+  const { app } = buildTestContext();
+
+  const response = await request(app).get('/api/products/options');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+
+  const options = response.body.data;
+  // Must be an array with all active products
+  assert.ok(Array.isArray(options));
+  // Producto 1 (Agua Mineral) and Producto 2 (Papas Clásicas) are active
+  // Producto 3 is inactive (estado: false) and should NOT be included
+  assert.equal(options.length, 2);
+
+  // Check shape: { id, nombre, categoria_id, codigo_barras }
+  const agua = options.find((p) => p.id === 1);
+  assert.ok(agua);
+  assert.equal(agua.nombre, 'Agua Mineral 500ml');
+  assert.equal(agua.categoria_id, 1);
+  assert.equal(agua.codigo_barras, '7501234567890');
+
+  const papas = options.find((p) => p.id === 2);
+  assert.ok(papas);
+  assert.equal(papas.nombre, 'Papas Clásicas');
+  assert.equal(papas.categoria_id, 2);
+  assert.equal(papas.codigo_barras, '7501234567891');
+
+  // Inactive product must NOT appear
+  const deleted = options.find((p) => p.id === 3);
+  assert.equal(deleted, undefined);
+});
+
+test('GET /api/products/options rechaza 401 sin token JWT', async () => {
+  const { InMemoryProductRepository } = require('../src/repositories/product.repository');
+  const repository = new InMemoryProductRepository({ products: [], categories: [] });
+  const app = createApp({ repository, authServiceUrl: 'http://auth:3002' });
+
+  const response = await request(app).get('/api/products/options');
+
+  assert.equal(response.status, 401);
+});
+
+test('GET /api/products/options retorna array vacio cuando no hay productos activos', async () => {
+  const { InMemoryProductRepository } = require('../src/repositories/product.repository');
+  const repository = new InMemoryProductRepository({ products: [], categories: [] });
+  const app = createApp({
+    repository,
+    verifyJWT: (req, _res, next) => {
+      req.authUser = { id_usuario: 1, rol: 'Administrador', nombre: 'Admin' };
+      next();
+    },
+  });
+
+  const response = await request(app).get('/api/products/options');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.ok(Array.isArray(response.body.data));
+  assert.equal(response.body.data.length, 0);
+});

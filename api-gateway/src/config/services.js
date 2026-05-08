@@ -58,6 +58,10 @@ function createServicesConfig(overrides = {}) {
       overrides.exportServiceUrl ||
       process.env.EXPORT_SERVICE_URL ||
       'http://localhost:3007',
+    configServiceUrl:
+      overrides.configServiceUrl ||
+      process.env.CONFIG_SERVICE_URL ||
+      'http://localhost:3008',
   };
 }
 
