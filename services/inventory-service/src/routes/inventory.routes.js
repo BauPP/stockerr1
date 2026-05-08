@@ -22,6 +22,7 @@ function createMovementsRouter(controller) {
   const router = Router();
   router.post('/movements', controller.registerMovement);
   router.get('/movements', controller.listMovements);
+  router.get('/reports/:reportType', controller.getReportByType);
   return router;
 }
 

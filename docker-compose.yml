@@ -131,6 +131,34 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  export-service:
+    build:
+      context: .
+      dockerfile: services/export-service/Dockerfile
+    container_name: stockerr-export-service
+    environment:
+      PORT: 3007
+      AUTH_SERVICE_URL: http://auth-service:3002
+      INVENTORY_SERVICE_URL: http://inventory-service:3005
+      AUDIT_SERVICE_URL: http://audit-service:3006
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: stockerr
+      DB_NAME: stockerr
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -144,6 +172,7 @@ services:
       USER_SERVICE_URL: http://user-service:3004
       INVENTORY_SERVICE_URL: http://inventory-service:3005
       AUDIT_SERVICE_URL: http://audit-service:3006
+      EXPORT_SERVICE_URL: http://export-service:3007
     ports:
       - "3000:3000"
     depends_on:
@@ -158,6 +187,8 @@ services:
       inventory-service:
         condition: service_started
       audit-service:
+        condition: service_started
+      export-service:
         condition: service_started
     restart: unless-stopped
 

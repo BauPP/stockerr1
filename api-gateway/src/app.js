@@ -67,6 +67,7 @@ const { createCategoryRoutes } = require('./routes/category.routes');
 const { createProductRoutes } = require('./routes/product.routes');
 const { createInventoryRouter } = require('./routes/inventory.routes');
 const { createAuditRoutes } = require('./routes/audit.routes');
+const { createExportRoutes } = require('./routes/export.routes');
 
 /**
  * Construye la app Express del gateway.
@@ -178,6 +179,18 @@ function createApp(options = {}) {
     '/api/audit',
     createAuditRoutes({
       auditServiceUrl: config.auditServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
+  // -----------------------------------------------------------------------
+  // /api/export - exportacion masiva de datos (MS-12), solo Administrador
+  // -----------------------------------------------------------------------
+  app.use(
+    '/api/export',
+    createExportRoutes({
+      exportServiceUrl: config.exportServiceUrl,
       authMiddleware,
       fetchImpl,
     })

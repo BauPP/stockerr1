@@ -605,9 +605,7 @@ export default function AlertsPage() {
             alignItems: 'center',
             gap: 8,
           }}>
-            <IconBell style={{ width: 12, height: 12, flexShrink: 0 }} />
-            Las alertas se calculan en tiempo real comparando stock actual con umbrales configurados.
-            Haz clic en las cards superiores para filtrar por tipo.
+           
           </div>
         )}
       </div>

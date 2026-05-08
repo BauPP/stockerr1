@@ -41,6 +41,108 @@ function buildTestContext(
   return { app, repository };
 }
 
+function buildReportContext(
+  user = { id_usuario: 10, nombre: 'Operador Demo', rol: 'Operador' }
+) {
+  const repository = new InMemoryInventoryRepository({
+    products: [
+      {
+        id_producto: 1,
+        nombre: 'Agua Mineral 500ml',
+        id_categoria: 1,
+        nombre_categoria: 'Bebidas',
+        precio_venta: 15,
+        stock_actual: 12,
+        estado: true,
+      },
+      {
+        id_producto: 2,
+        nombre: 'Papas Clasicas',
+        id_categoria: 2,
+        nombre_categoria: 'Snacks',
+        precio_venta: 8,
+        stock_actual: 6,
+        estado: true,
+      },
+      {
+        id_producto: 3,
+        nombre: 'Galletas Avena',
+        id_categoria: 2,
+        nombre_categoria: 'Snacks',
+        precio_venta: 12,
+        stock_actual: 4,
+        estado: true,
+      },
+    ],
+    movements: [
+      {
+        id_movimiento: 1,
+        id_producto: 1,
+        nombre_producto: 'Agua Mineral 500ml',
+        movement_type: 'entrada',
+        cantidad: 10,
+        stock_anterior: 2,
+        stock_posterior: 12,
+        nombre_motivo: 'Compra / Reposición',
+        tipo_operacion: 'ENTRADA',
+        id_usuario: 1,
+        nombre_usuario: 'Admin Demo',
+        fecha_hora_exacta: '2026-04-01T08:00:00.000Z',
+      },
+      {
+        id_movimiento: 2,
+        id_producto: 1,
+        nombre_producto: 'Agua Mineral 500ml',
+        movement_type: 'salida',
+        cantidad: 3,
+        stock_anterior: 12,
+        stock_posterior: 9,
+        nombre_motivo: 'VENTA MOSTRADOR',
+        tipo_operacion: 'SALIDA',
+        id_usuario: 2,
+        nombre_usuario: 'Operador Demo',
+        fecha_hora_exacta: '2026-04-10T10:00:00.000Z',
+      },
+      {
+        id_movimiento: 3,
+        id_producto: 2,
+        nombre_producto: 'Papas Clasicas',
+        movement_type: 'salida',
+        cantidad: 2,
+        stock_anterior: 8,
+        stock_posterior: 6,
+        nombre_motivo: 'Venta web',
+        tipo_operacion: 'SALIDA',
+        id_usuario: 2,
+        nombre_usuario: 'Operador Demo',
+        fecha_hora_exacta: '2026-04-20T09:30:00.000Z',
+      },
+      {
+        id_movimiento: 4,
+        id_producto: 3,
+        nombre_producto: 'Galletas Avena',
+        movement_type: 'salida',
+        cantidad: 1,
+        stock_anterior: 5,
+        stock_posterior: 4,
+        nombre_motivo: 'Merma',
+        tipo_operacion: 'SALIDA',
+        id_usuario: 2,
+        nombre_usuario: 'Operador Demo',
+        fecha_hora_exacta: '2026-04-12T09:30:00.000Z',
+      },
+    ],
+  });
+
+  const app = createApp({
+    repository,
+    notifier: { notifyMovementRegistered: async () => {} },
+    authMiddleware: createTestAuthMiddleware(user),
+  });
+
+  return { app, repository };
+}
+
 test('POST /api/inventory/movements registra una entrada y actualiza stock de forma atomica', async () => {
   const { app, repository } = buildTestContext();
 
@@ -411,4 +513,131 @@ test('PgInventoryRepository.getAlertSourceRows tolera columnas en null', async (
 
   assert.equal(result[0].maxStock, undefined);
   assert.equal(result[0].expirationDate, null);
+});
+
+test('GET /api/inventory/reports/:reportType devuelve payload uniforme para movements, sales y stock', async () => {
+  const { app } = buildReportContext();
+
+  const [movementsResponse, salesResponse, stockResponse] = await Promise.all([
+    request(app).get('/api/inventory/reports/movements'),
+    request(app).get('/api/inventory/reports/sales'),
+    request(app).get('/api/inventory/reports/stock'),
+  ]);
+
+  for (const response of [movementsResponse, salesResponse, stockResponse]) {
+    assert.equal(response.status, 200);
+    assert.equal(response.body.success, true);
+    assert.equal(typeof response.body.data.meta.generatedAt, 'string');
+    assert.ok(Array.isArray(response.body.data.columns));
+    assert.ok(Array.isArray(response.body.data.items));
+  }
+
+  assert.equal(movementsResponse.body.data.meta.reportType, 'movements');
+  assert.equal(salesResponse.body.data.meta.reportType, 'sales');
+  assert.equal(stockResponse.body.data.meta.reportType, 'stock');
+});
+
+test('GET /api/inventory/reports/unknown responde 404 para tipos de reporte no soportados', async () => {
+  const { app } = buildReportContext();
+
+  const response = await request(app).get('/api/inventory/reports/unknown');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.error.code, 'REPORT_NOT_FOUND');
+});
+
+test('GET /api/inventory/reports/sales aplica filtros combinados de fecha y categoria', async () => {
+  const { app } = buildReportContext();
+
+  const response = await request(app)
+    .get('/api/inventory/reports/sales')
+    .query({
+      fecha_inicio: '2026-04-15',
+      fecha_fin: '2026-04-30',
+      categoria: 2,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.items.length, 1);
+  assert.equal(response.body.data.items[0].producto, 'Papas Clasicas');
+  assert.equal(response.body.data.summary.total_quantity, 2);
+  assert.equal(response.body.data.summary.total_value, 16);
+});
+
+test('GET /api/inventory/reports/stock ignora filtros no aplicables y filtra snapshot actual', async () => {
+  const { app } = buildReportContext();
+
+  const response = await request(app)
+    .get('/api/inventory/reports/stock')
+    .query({ categoria: 2, tipo: 'entrada', fecha_inicio: '2026-04-01' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.items.length, 2);
+  assert.equal(response.body.data.summary.total_quantity, 10);
+});
+
+test('GET /api/inventory/reports/sales incluye ventas con aliases observables del motivo', async () => {
+  const { app } = buildReportContext();
+
+  const response = await request(app).get('/api/inventory/reports/sales');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    response.body.data.items.map((item) => item.tipo),
+    ['venta', 'venta']
+  );
+  assert.equal(response.body.data.summary.total_quantity, 5);
+  assert.equal(response.body.data.summary.total_value, 61);
+});
+
+test('GET /api/inventory/movements y reports mantienen la fecha local de Colombia', async () => {
+  const repository = new InMemoryInventoryRepository({
+    products: [
+      {
+        id_producto: 1,
+        nombre: 'Agua Mineral 500ml',
+        id_categoria: 1,
+        nombre_categoria: 'Bebidas',
+        precio_venta: 15,
+        stock_actual: 12,
+        estado: true,
+      },
+    ],
+    movements: [
+      {
+        id_movimiento: 1,
+        id_producto: 1,
+        nombre_producto: 'Agua Mineral 500ml',
+        movement_type: 'entrada',
+        cantidad: 10,
+        stock_anterior: 2,
+        stock_posterior: 12,
+        nombre_motivo: 'Compra / Reposición',
+        tipo_operacion: 'ENTRADA',
+        id_usuario: 1,
+        nombre_usuario: 'Admin Demo',
+        fecha_hora_exacta: '2026-05-05T02:15:00.000Z',
+      },
+    ],
+  });
+  const app = createApp({
+    repository,
+    notifier: { notifyMovementRegistered: async () => {} },
+    authMiddleware: createTestAuthMiddleware({
+      id_usuario: 10,
+      nombre: 'Operador Demo',
+      rol: 'Operador',
+    }),
+  });
+
+  const [movementsResponse, reportResponse] = await Promise.all([
+    request(app).get('/api/inventory/movements'),
+    request(app).get('/api/inventory/reports/movements'),
+  ]);
+
+  assert.equal(movementsResponse.status, 200);
+  assert.equal(reportResponse.status, 200);
+  assert.equal(movementsResponse.body.data.items[0].fecha, '2026-05-04');
+  assert.equal(reportResponse.body.data.items[0].fecha, '2026-05-04');
 });

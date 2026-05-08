@@ -15,6 +15,7 @@
  *   - user-service:      3004
  *   - inventory-service: 3005
  *   - audit-service:     3006
+ *   - export-service:    3007
  *
  * @param {object} [overrides]
  * @returns {{
@@ -23,7 +24,8 @@
  *   categoryServiceUrl: string,
  *   userServiceUrl: string,
  *   inventoryServiceUrl: string,
- *   auditServiceUrl: string
+ *   auditServiceUrl: string,
+ *   exportServiceUrl: string
  * }}
  */
 function createServicesConfig(overrides = {}) {
@@ -52,6 +54,10 @@ function createServicesConfig(overrides = {}) {
       overrides.auditServiceUrl ||
       process.env.AUDIT_SERVICE_URL ||
       'http://localhost:3006',
+    exportServiceUrl:
+      overrides.exportServiceUrl ||
+      process.env.EXPORT_SERVICE_URL ||
+      'http://localhost:3007',
   };
 }
 

@@ -294,6 +294,15 @@ test('Gateway integra login, users, categories, products, inventory y audit logs
   assert.equal(listMovementsResponse.body.success, true);
   assert.equal(listMovementsResponse.body.data.total, 1);
 
+  const reportsResponse = await request(gatewayApp)
+    .get('/api/inventory/reports/stock')
+    .set('Authorization', `Bearer ${operatorToken}`);
+
+  assert.equal(reportsResponse.status, 200);
+  assert.equal(reportsResponse.body.success, true);
+  assert.equal(reportsResponse.body.data.meta.reportType, 'stock');
+  assert.ok(Array.isArray(reportsResponse.body.data.items));
+
   const auditLogsResponse = await waitForAuditLogCount(gatewayApp, adminToken, 4);
   assert.equal(auditLogsResponse.status, 200);
   assert.equal(auditLogsResponse.body.success, true);
