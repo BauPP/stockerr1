@@ -1,5 +1,3 @@
-Layout.jsx
-
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import logo from '../assets/images/logo.svg'
@@ -112,8 +110,6 @@ export default function Layout({ children }) {
 
   const currentLabel =
     navItems.find(i => location.pathname.startsWith(i.to))?.label ?? 'Inicio'
-
-  const initial = user?.nombre?.charAt(0).toUpperCase() ?? '?'
 
   return (
     <div className="layout">

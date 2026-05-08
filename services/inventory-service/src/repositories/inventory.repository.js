@@ -13,6 +13,32 @@ const REASON_MATCHERS = {
   },
 };
 
+function toNumber(value) {
+  const normalized = Number(value || 0);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function toDateOnly(value) {
+  const normalizedDate = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(normalizedDate.getTime())) {
+    return '';
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .formatToParts(normalizedDate)
+    .reduce((accumulator, part) => {
+      accumulator[part.type] = part.value;
+      return accumulator;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function cloneRecord(record) {
   return JSON.parse(JSON.stringify(record));
 }
@@ -38,6 +64,85 @@ function deriveMovementTypeFromReason(record) {
   }
 
   return 'salida';
+}
+
+function normalizeSalesReason(value) {
+  const normalized = normalizeReasonLabel(value);
+  return normalized.includes('venta') ? 'venta' : normalized;
+}
+
+function isSalesReason(value) {
+  return normalizeSalesReason(value) === 'venta';
+}
+
+function filterReportByCommonFields(record, filters = {}) {
+  if (typeof filters.categoria === 'number' && Number(record.id_categoria) !== filters.categoria) {
+    return false;
+  }
+
+  if (typeof filters.producto === 'number' && Number(record.id_producto) !== filters.producto) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterReportByDate(record, filters = {}) {
+  const movementDate = toDateOnly(record.fecha_hora_exacta || record.fecha);
+
+  if (filters.fecha_inicio && movementDate < filters.fecha_inicio) {
+    return false;
+  }
+
+  if (filters.fecha_fin && movementDate > filters.fecha_fin) {
+    return false;
+  }
+
+  return true;
+}
+
+function mapMovementReportRow(row) {
+  return {
+    id_movimiento: row.id_movimiento,
+    fecha: toDateOnly(row.fecha_hora_exacta),
+    producto: row.nombre_producto,
+    categoria: row.nombre_categoria || null,
+    tipo: deriveMovementTypeFromReason(row),
+    motivo: row.nombre_motivo || null,
+    cantidad: toNumber(row.cantidad),
+    stock_anterior: toNumber(row.stock_anterior),
+    stock_posterior: toNumber(row.stock_posterior),
+    usuario: row.nombre_usuario || null,
+    valor_total: 0,
+  };
+}
+
+function mapSalesReportRow(row) {
+  const cantidad = toNumber(row.cantidad);
+  const precio_unitario = toNumber(row.precio_venta);
+  return {
+    id_movimiento: row.id_movimiento,
+    fecha: toDateOnly(row.fecha_hora_exacta),
+    producto: row.nombre_producto,
+    categoria: row.nombre_categoria || null,
+    tipo: 'venta',
+    cantidad,
+    precio_unitario,
+    valor_total: cantidad * precio_unitario,
+  };
+}
+
+function mapStockReportRow(row) {
+  const cantidad = toNumber(row.stock_actual);
+  const precio_unitario = toNumber(row.precio_venta);
+  return {
+    id_producto: row.id_producto,
+    producto: row.nombre,
+    categoria: row.nombre_categoria || null,
+    cantidad,
+    precio_unitario,
+    valor_total: cantidad * precio_unitario,
+  };
 }
 
 class PgInventoryRepository {
@@ -146,9 +251,10 @@ class PgInventoryRepository {
         stock_anterior,
         stock_posterior,
         numero_factura,
-        comentarios
+        comentarios,
+        fecha_hora_exacta
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamp)
       RETURNING
         id_movimiento,
         id_producto,
@@ -173,6 +279,7 @@ class PgInventoryRepository {
       payload.stock_posterior,
       payload.numero_factura || null,
       payload.comentarios || null,
+      payload.fecha_hora_exacta,
     ];
 
     const { rows } = await target.query(query, values);
@@ -352,6 +459,150 @@ class PgInventoryRepository {
       expirationDate: row.fecha_vencimiento || null,
     }));
   }
+
+  async getMovementReportRows(filters = {}) {
+    const params = [];
+    const where = [];
+
+    if (typeof filters.categoria === 'number') {
+      params.push(filters.categoria);
+      where.push(`p.id_categoria = $${params.length}`);
+    }
+
+    if (typeof filters.producto === 'number') {
+      params.push(filters.producto);
+      where.push(`p.id_producto = $${params.length}`);
+    }
+
+    if (filters.fecha_inicio) {
+      params.push(filters.fecha_inicio);
+      where.push(`DATE(m.fecha_hora_exacta) >= $${params.length}`);
+    }
+
+    if (filters.fecha_fin) {
+      params.push(filters.fecha_fin);
+      where.push(`DATE(m.fecha_hora_exacta) <= $${params.length}`);
+    }
+
+    if (filters.tipo === 'entrada') {
+      where.push(`LOWER(mm.tipo_operacion::text) = 'entrada'`);
+    }
+
+    if (filters.tipo === 'salida') {
+      where.push(`(LOWER(mm.tipo_operacion::text) = 'salida' OR (LOWER(mm.tipo_operacion::text) = 'ajuste' AND LOWER(mm.nombre_motivo) NOT LIKE '%ajuste%'))`);
+    }
+
+    if (filters.tipo === 'ajuste') {
+      where.push(`(LOWER(mm.tipo_operacion::text) = 'ajuste' AND LOWER(mm.nombre_motivo) LIKE '%ajuste%')`);
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+    const query = `
+      SELECT
+        m.id_movimiento,
+        m.id_producto,
+        m.cantidad,
+        m.stock_anterior,
+        m.stock_posterior,
+        m.fecha_hora_exacta,
+        p.id_categoria,
+        p.nombre AS nombre_producto,
+        c.nombre_categoria,
+        u.nombre AS nombre_usuario,
+        mm.nombre_motivo,
+        mm.tipo_operacion
+      FROM movimientos_inventario m
+      JOIN productos p ON p.id_producto = m.id_producto
+      JOIN categorias c ON c.id_categoria = p.id_categoria
+      LEFT JOIN usuarios u ON u.id_usuario = m.id_usuario
+      JOIN motivos_movimiento mm ON mm.id_motivo = m.id_motivo
+      ${whereClause}
+      ORDER BY m.fecha_hora_exacta DESC, m.id_movimiento DESC
+    `;
+
+    const { rows } = await this.pool.query(query, params);
+    return rows.map(mapMovementReportRow);
+  }
+
+  async getSalesReportRows(filters = {}) {
+    const params = [];
+    const where = ["(LOWER(mm.tipo_operacion::text) = 'salida' OR LOWER(mm.nombre_motivo) LIKE '%venta%')"];
+
+    if (typeof filters.categoria === 'number') {
+      params.push(filters.categoria);
+      where.push(`p.id_categoria = $${params.length}`);
+    }
+
+    if (typeof filters.producto === 'number') {
+      params.push(filters.producto);
+      where.push(`p.id_producto = $${params.length}`);
+    }
+
+    if (filters.fecha_inicio) {
+      params.push(filters.fecha_inicio);
+      where.push(`DATE(m.fecha_hora_exacta) >= $${params.length}`);
+    }
+
+    if (filters.fecha_fin) {
+      params.push(filters.fecha_fin);
+      where.push(`DATE(m.fecha_hora_exacta) <= $${params.length}`);
+    }
+
+    const query = `
+      SELECT
+        m.id_movimiento,
+        m.id_producto,
+        m.cantidad,
+        m.fecha_hora_exacta,
+        p.id_categoria,
+        p.nombre AS nombre_producto,
+        p.precio_venta,
+        c.nombre_categoria,
+        mm.nombre_motivo,
+        mm.tipo_operacion
+      FROM movimientos_inventario m
+      JOIN productos p ON p.id_producto = m.id_producto
+      JOIN categorias c ON c.id_categoria = p.id_categoria
+      JOIN motivos_movimiento mm ON mm.id_motivo = m.id_motivo
+      WHERE ${where.join(' AND ')}
+      ORDER BY m.fecha_hora_exacta DESC, m.id_movimiento DESC
+    `;
+
+    const { rows } = await this.pool.query(query, params);
+    return rows.filter((row) => isSalesReason(row.nombre_motivo)).map(mapSalesReportRow);
+  }
+
+  async getStockReportRows(filters = {}) {
+    const params = [];
+    const where = ['p.estado = true'];
+
+    if (typeof filters.categoria === 'number') {
+      params.push(filters.categoria);
+      where.push(`p.id_categoria = $${params.length}`);
+    }
+
+    if (typeof filters.producto === 'number') {
+      params.push(filters.producto);
+      where.push(`p.id_producto = $${params.length}`);
+    }
+
+    const query = `
+      SELECT
+        p.id_producto,
+        p.nombre,
+        p.id_categoria,
+        p.stock_actual,
+        p.precio_venta,
+        c.nombre_categoria
+      FROM productos p
+      JOIN categorias c ON c.id_categoria = p.id_categoria
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.nombre ASC, p.id_producto ASC
+    `;
+
+    const { rows } = await this.pool.query(query, params);
+    return rows.map(mapStockReportRow);
+  }
 }
 
 class InMemoryInventoryRepository {
@@ -450,7 +701,7 @@ class InMemoryInventoryRepository {
           return false;
         }
 
-        const movementDate = new Date(movement.fecha_hora_exacta).toISOString().slice(0, 10);
+        const movementDate = toDateOnly(movement.fecha_hora_exacta);
         if (filters.exactDate && movementDate !== filters.exactDate) {
           return false;
         }
@@ -519,6 +770,53 @@ class InMemoryInventoryRepository {
     }
 
     return rows.filter((row) => String(row.categoryId) === String(filters.categoryId));
+  }
+
+  async getMovementReportRows(filters = {}) {
+    return this.movements
+      .map((movement) => {
+        const product = this.products.find((item) => item.id_producto === movement.id_producto) || {};
+        return {
+          ...cloneRecord(movement),
+          id_categoria: product.id_categoria,
+          nombre_categoria: product.nombre_categoria || null,
+          nombre_producto: product.nombre || movement.nombre_producto || null,
+          nombre_usuario: movement.nombre_usuario || null,
+        };
+      })
+      .filter((row) => filterReportByCommonFields(row, filters))
+      .filter((row) => filterReportByDate(row, filters))
+      .filter((row) => !filters.tipo || deriveMovementTypeFromReason(row) === filters.tipo)
+      .sort((left, right) => new Date(right.fecha_hora_exacta).getTime() - new Date(left.fecha_hora_exacta).getTime())
+      .map(mapMovementReportRow);
+  }
+
+  async getSalesReportRows(filters = {}) {
+    return this.movements
+      .map((movement) => {
+        const product = this.products.find((item) => item.id_producto === movement.id_producto) || {};
+        return {
+          ...cloneRecord(movement),
+          id_categoria: product.id_categoria,
+          nombre_categoria: product.nombre_categoria || null,
+          nombre_producto: product.nombre || movement.nombre_producto || null,
+          precio_venta: product.precio_venta || 0,
+        };
+      })
+      .filter((row) => filterReportByCommonFields(row, filters))
+      .filter((row) => filterReportByDate(row, filters))
+      .filter((row) => deriveMovementTypeFromReason(row) === 'salida')
+      .filter((row) => isSalesReason(row.nombre_motivo || row.motivo))
+      .sort((left, right) => new Date(right.fecha_hora_exacta).getTime() - new Date(left.fecha_hora_exacta).getTime())
+      .map(mapSalesReportRow);
+  }
+
+  async getStockReportRows(filters = {}) {
+    return this.products
+      .filter((product) => product.estado !== false)
+      .filter((product) => filterReportByCommonFields(product, filters))
+      .sort((left, right) => String(left.nombre || '').localeCompare(String(right.nombre || '')))
+      .map((product) => mapStockReportRow(product));
   }
 }
 

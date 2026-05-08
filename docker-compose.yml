@@ -131,14 +131,16 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  barcode-service:
+  export-service:
     build:
-      context: ./services/barcode-service
-      dockerfile: Dockerfile
-    container_name: stockerr-barcode-service
+      context: .
+      dockerfile: services/export-service/Dockerfile
+    container_name: stockerr-export-service
     environment:
       PORT: 3007
       AUTH_SERVICE_URL: http://auth-service:3002
+      INVENTORY_SERVICE_URL: http://inventory-service:3005
+      AUDIT_SERVICE_URL: http://audit-service:3006
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -151,27 +153,9 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_started
-    restart: unless-stopped
-
-  config-service:
-    build:
-      context: ./services/config-service
-      dockerfile: Dockerfile
-    container_name: stockerr-config-service
-    environment:
-      PORT: 3008
-      AUTH_SERVICE_URL: http://auth-service:3002
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: stockerr
-      DB_NAME: stockerr
-    ports:
-      - "3008:3008"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      auth-service:
+      inventory-service:
+        condition: service_started
+      audit-service:
         condition: service_started
     restart: unless-stopped
 
@@ -188,8 +172,7 @@ services:
       USER_SERVICE_URL: http://user-service:3004
       INVENTORY_SERVICE_URL: http://inventory-service:3005
       AUDIT_SERVICE_URL: http://audit-service:3006
-      BARCODE_SERVICE_URL: http://barcode-service:3007
-      CONFIG_SERVICE_URL: http://config-service:3008
+      EXPORT_SERVICE_URL: http://export-service:3007
     ports:
       - "3000:3000"
     depends_on:
@@ -205,9 +188,7 @@ services:
         condition: service_started
       audit-service:
         condition: service_started
-      barcode-service:
-        condition: service_started
-      config-service:
+      export-service:
         condition: service_started
     restart: unless-stopped
 

@@ -25,7 +25,7 @@
 
 const { Router } = require('express');
 
-const { ADMINISTRADOR, OPERADOR } = require('../../../shared/constants/roles');
+const { ADMINISTRADOR, OPERADOR, PERMISOS } = require('../../../shared/constants/roles');
 const { requireRoles } = require('../middlewares/role.middleware');
 
 /**
@@ -196,6 +196,29 @@ function createInventoryRouter({ inventoryServiceUrl, authMiddleware, fetchImpl 
       });
     } catch (error) {
       return next(error);
+    }
+  });
+
+  const reportGuards = authMiddleware
+    ? [authMiddleware, requireRoles(PERMISOS.VER_REPORTES)]
+    : [];
+
+  router.get('/reports/:reportType', ...reportGuards, async (req, res) => {
+    try {
+      const upstreamUrl = buildProxyUrl(
+        inventoryServiceUrl,
+        `/api/inventory/reports/${req.params.reportType}`,
+        req.query
+      );
+      await proxyToInventory({
+        req,
+        res,
+        upstreamUrl,
+        method: 'GET',
+        fetchImpl,
+      });
+    } catch (_error) {
+      res.status(502).json({ error: 'Inventory service unavailable' });
     }
   });
 

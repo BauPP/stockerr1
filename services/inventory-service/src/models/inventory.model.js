@@ -237,6 +237,12 @@ const ALERT_TYPES = Object.freeze({
   EXPIRING_SOON: 'expiring-soon',
 });
 
+const REPORT_TYPES = Object.freeze({
+  MOVEMENTS: 'movements',
+  SALES: 'sales',
+  STOCK: 'stock',
+});
+
 const VALID_ALERT_TYPES = new Set(Object.values(ALERT_TYPES));
 const EXPIRING_SOON_DAYS = 7;
 
@@ -328,6 +334,88 @@ function describeInventoryAlertSourceShape() {
 }
 
 // ===========================================================================
+// 3. REPORTES (MS-07)
+// ===========================================================================
+
+const REPORT_TYPE_ALIASES = Object.freeze({
+  movement: REPORT_TYPES.MOVEMENTS,
+  movements: REPORT_TYPES.MOVEMENTS,
+  sales: REPORT_TYPES.SALES,
+  sale: REPORT_TYPES.SALES,
+  stock: REPORT_TYPES.STOCK,
+});
+
+function normalizeReportType(value) {
+  const normalized = normalizeTrimmedString(value).toLowerCase();
+  const reportType = REPORT_TYPE_ALIASES[normalized];
+
+  if (!reportType) {
+    throw createHttpError(404, 'REPORT_NOT_FOUND', 'Tipo de reporte no soportado');
+  }
+
+  return reportType;
+}
+
+function normalizeReportDateFilter(value, fieldName) {
+  return normalizeOptionalDate(value, fieldName);
+}
+
+function normalizeOptionalPositiveInteger(value, fieldName) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return undefined;
+  }
+
+  return normalizePositiveInteger(value, fieldName);
+}
+
+function normalizeOptionalMovementReportType(value) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return undefined;
+  }
+
+  return normalizeMovementType(value);
+}
+
+function parseReportFilters(reportTypeInput, query = {}) {
+  const reportType = normalizeReportType(reportTypeInput);
+  const fecha_inicio = normalizeReportDateFilter(query.fecha_inicio, 'fecha_inicio');
+  const fecha_fin = normalizeReportDateFilter(query.fecha_fin, 'fecha_fin');
+
+  if (fecha_inicio && fecha_fin && fecha_inicio > fecha_fin) {
+    throw createHttpError(
+      400,
+      'VALIDATION_ERROR',
+      'fecha_inicio no puede ser mayor a fecha_fin'
+    );
+  }
+
+  const baseFilters = {
+    reportType,
+    categoria: normalizeOptionalPositiveInteger(query.categoria, 'categoria'),
+    producto: normalizeOptionalPositiveInteger(query.producto, 'producto'),
+  };
+
+  if (reportType === REPORT_TYPES.MOVEMENTS) {
+    return {
+      ...baseFilters,
+      fecha_inicio,
+      fecha_fin,
+      tipo: normalizeOptionalMovementReportType(query.tipo),
+    };
+  }
+
+  if (reportType === REPORT_TYPES.SALES) {
+    return {
+      ...baseFilters,
+      fecha_inicio,
+      fecha_fin,
+    };
+  }
+
+  return baseFilters;
+}
+
+// ===========================================================================
 // EXPORTS
 // ===========================================================================
 
@@ -347,6 +435,9 @@ module.exports = {
   createDerivedAlert,
   describeInventoryAlertSourceShape,
   isFiniteNumber,
+  parseReportFilters,
+  REPORT_TYPES,
+  normalizeReportType,
   normalizeAlertFilters,
   toDate,
   toIsoString,

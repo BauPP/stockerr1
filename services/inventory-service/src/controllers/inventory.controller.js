@@ -16,6 +16,8 @@
 const {
   ValidationError,
   parseMovementFilters,
+  parseReportFilters,
+  REPORT_TYPES,
   validateCreateMovementPayload,
 } = require('../models/inventory.model');
 
@@ -75,6 +77,52 @@ class InventoryController {
       sendSuccess(res, 200, result);
     } catch (error) {
       next(error);
+    }
+  };
+
+  getMovementReport = async (req, res, next) => {
+    try {
+      const filters = parseReportFilters(REPORT_TYPES.MOVEMENTS, req.query);
+      const result = await this.inventoryService.getMovementReport(filters);
+      sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getSalesReport = async (req, res, next) => {
+    try {
+      const filters = parseReportFilters(REPORT_TYPES.SALES, req.query);
+      const result = await this.inventoryService.getSalesReport(filters);
+      sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getStockReport = async (req, res, next) => {
+    try {
+      const filters = parseReportFilters(REPORT_TYPES.STOCK, req.query);
+      const result = await this.inventoryService.getStockReport(filters);
+      sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getReportByType = (req, res, next) => {
+    const handlers = {
+      [REPORT_TYPES.MOVEMENTS]: this.getMovementReport,
+      [REPORT_TYPES.SALES]: this.getSalesReport,
+      [REPORT_TYPES.STOCK]: this.getStockReport,
+    };
+
+    try {
+      const filters = parseReportFilters(req.params.reportType, req.query);
+      const handler = handlers[filters.reportType];
+      return handler(req, res, next);
+    } catch (error) {
+      return next(error);
     }
   };
 
