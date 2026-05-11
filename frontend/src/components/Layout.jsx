@@ -80,6 +80,32 @@ const Icon = {
       <line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   ),
+  Truck: () => (
+  <svg className="icon-svg" viewBox="0 0 24 24">
+    <rect x="1" y="3" width="15" height="13"/>
+    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+    <circle cx="5.5" cy="18.5" r="2.5"/>
+    <circle cx="18.5" cy="18.5" r="2.5"/>
+  </svg>
+),
+  Barcode: () => (
+    <svg className="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <line x1="3"  y1="5" x2="3"  y2="19"/>
+      <line x1="6"  y1="5" x2="6"  y2="19"/>
+      <line x1="9"  y1="5" x2="9"  y2="19"/>
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="15" y1="5" x2="15" y2="19"/>
+      <line x1="18" y1="5" x2="18" y2="19"/>
+      <line x1="21" y1="5" x2="21" y2="19"/>
+    </svg>
+  ),
+  Settings: () => (
+    <svg className="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.07 4.93A10 10 0 1 1 4.93 19.07"/>
+      <path d="M20 12a8 8 0 0 0-8-8"/>
+    </svg>
+  ),
 }
 
 /* ── Rutas de navegación por rol ── */
@@ -87,10 +113,13 @@ const NAV_ADMIN = [
   { to: '/dashboard',  icon: <Icon.Home />,    label: 'Inicio' },
   { to: '/usuarios',   icon: <Icon.Users />,   label: 'Usuarios' },
   { to: '/categorias', icon: <Icon.Tag />,     label: 'Categorías' },
+  { to: '/proveedores', icon: <Icon.Truck />, label: 'Proveedores' },
   { to: '/productos',  icon: <Icon.Box />,     label: 'Productos' },      
   { to: '/inventario',     icon: <Icon.Receipt />, label: 'Inventario' },
   { to: '/alertas',    icon: <Icon.Alert />,   label: 'Alertas' },
   { to: '/auditoria',  icon: <Icon.History />, label: 'Auditoría' },
+  { to: '/codigos-barras',   icon: <Icon.Barcode />,  label: 'Códigos de barras' },
+  { to: '/configuracion',    icon: <Icon.Settings />, label: 'Configuración' },
   { to: '/reportes',   icon: <Icon.Chart />,   label: 'Reportes' },
 ]
  
@@ -99,6 +128,7 @@ const NAV_OPERADOR = [
   { to: '/productos', icon: <Icon.Box />,     label: 'Productos' },          
   { to: '/inventario',    icon: <Icon.Receipt />, label: 'Inventario' },
   { to: '/alertas',   icon: <Icon.Alert />,   label: 'Alertas' },
+  { to: '/codigos-barras', icon: <Icon.Barcode />, label: 'Códigos de barras' },
   { to: '/reportes',  icon: <Icon.Chart />,   label: 'Reportes' },
 ]
 
