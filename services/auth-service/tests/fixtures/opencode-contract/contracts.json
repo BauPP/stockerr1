@@ -1,0 +1,31 @@
+{
+  "gh-skills": {
+    "skills": ["gh-auth", "gh-issue", "gh-pr", "gh-review", "gh-actions", "gh-release"],
+    "requiredSections": ["Trigger:", "Validaciones Previas", "Preferred Commands"],
+    "ownershipRules": ["gh-pr != review", "gh-actions != release"],
+    "sharedFile": "gh-skills/_shared/gh-cli-common.md",
+    "agentsFixture": "gh-skills/AGENTS.md",
+    "requiredFiles": [
+      "gh-skills/gh-auth/references/permission-checks.md",
+      "gh-skills/gh-issue/assets/issue-body-guidelines.md",
+      "gh-skills/gh-pr/assets/pr-body-template.md",
+      "gh-skills/gh-pr/references/pr-checklist.md",
+      "gh-skills/gh-review/references/review-decision-matrix.md",
+      "gh-skills/gh-actions/references/actions-diagnostics.md",
+      "gh-skills/gh-release/assets/release-notes-template.md",
+      "gh-skills/gh-release/references/release-flow.md"
+    ]
+  },
+  "clickup": {
+    "requiredFiles": [
+      "clickup/_shared/clickup-http-common.md",
+      "clickup/clickup/SKILL.md"
+    ],
+    "supportFiles": [
+      "clickup/clickup/references/api-checklist.md",
+      "clickup/clickup/assets/task-update-template.md"
+    ],
+    "agentsFixture": "clickup/AGENTS.md",
+    "agentsContract": "autoload por contexto ClickUp sin secretos"
+  }
+}

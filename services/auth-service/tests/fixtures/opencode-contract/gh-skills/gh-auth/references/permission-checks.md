@@ -1,0 +1,1 @@
+Minimum permission checks reference.
