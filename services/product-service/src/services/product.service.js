@@ -146,6 +146,28 @@ class ProductService {
     };
   }
 
+  async getProductOptions() {
+    const products = await this.repository.listAllOptions();
+
+    // Enrich with category name for each product
+    const enriched = await Promise.all(
+      products.map(async (product) => {
+        const category = product.id_categoria
+          ? await this.repository.getCategoryById(product.id_categoria)
+          : null;
+        return {
+          id: product.id_producto,
+          nombre: product.nombre,
+          categoria_id: product.id_categoria,
+          codigo_barras: product.codigo_barras_unico || product.codigo_barras,
+          categoria: category?.nombre_categoria || null,
+        };
+      })
+    );
+
+    return { data: enriched };
+  }
+
   async deleteProduct(idProducto) {
     const current = await this.repository.getProductById(idProducto);
     if (!current) {

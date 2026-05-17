@@ -64,6 +64,15 @@ class ProductController {
     }
   };
 
+  getProductOptions = async (req, res, next) => {
+    try {
+      const result = await this.productService.getProductOptions();
+      sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deleteProduct = async (req, res, next) => {
     try {
       const idProducto = parseProductId(req.params.id);
