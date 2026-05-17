@@ -157,6 +157,27 @@ services:
         condition: service_started
       audit-service:
         condition: service_started
+      supplier-service:
+        condition: service_started
+    restart: unless-stopped
+
+  supplier-service:
+    build:
+      context: .
+      dockerfile: services/supplier-service/Dockerfile
+    container_name: stockerr-supplier-service
+    environment:
+      PORT: 3008
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: stockerr
+      DB_NAME: stockerr
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   api-gateway:
@@ -173,6 +194,7 @@ services:
       INVENTORY_SERVICE_URL: http://inventory-service:3005
       AUDIT_SERVICE_URL: http://audit-service:3006
       EXPORT_SERVICE_URL: http://export-service:3007
+      PROVIDER_SERVICE_URL: http://supplier-service:3008
     ports:
       - "3000:3000"
     depends_on:

@@ -75,6 +75,7 @@ const { createAuthRoutes } = require('./routes/auth.routes');
 const { createUserRoutes } = require('./routes/user.routes');
 const { createCategoryRoutes } = require('./routes/category.routes');
 const { createProductRoutes } = require('./routes/product.routes');
+const { createProviderRoutes } = require('./routes/provider.routes');
 const { createInventoryRouter } = require('./routes/inventory.routes');
 const { createAuditRoutes } = require('./routes/audit.routes');
 const { createExportRoutes } = require('./routes/export.routes');
@@ -90,6 +91,7 @@ const { createExportRoutes } = require('./routes/export.routes');
  * @param {string} [options.userServiceUrl]
  * @param {string} [options.categoryServiceUrl]
  * @param {string} [options.productServiceUrl]
+ * @param {string} [options.providerServiceUrl]
  * @param {string} [options.inventoryServiceUrl]
  * @param {string} [options.auditServiceUrl]
  * @param {string} [options.barcodeServiceUrl]
@@ -163,6 +165,15 @@ function createApp(options = {}) {
     '/api/products',
     createProductRoutes({
       productServiceUrl: config.productServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
+  app.use(
+    '/api/providers',
+    createProviderRoutes({
+      providerServiceUrl: config.providerServiceUrl,
       authMiddleware,
       fetchImpl,
     })
