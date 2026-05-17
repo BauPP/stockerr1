@@ -87,13 +87,16 @@ test('GET /api/inventory/alerts preserves upstream status and body for validatio
 
 test('GET /api/inventory/alerts returns 502 when inventory-service is unavailable', async () => {
   const app = buildAppWith(async () => {
-    throw new Error('connect ECONNREFUSED');
+    throw Object.assign(new Error('connect ECONNREFUSED'), {
+      cause: { code: 'ECONNREFUSED', errno: -4078 },
+    });
   });
 
   const response = await request(app).get('/api/inventory/alerts');
 
   assert.equal(response.status, 502);
-  assert.equal(response.body.error, 'Inventory service unavailable');
+  assert.equal(response.body.error.code, 'UPSTREAM_UNAVAILABLE');
+  assert.equal(response.body.success, false);
 });
 
 test('GET /api/inventory/reports/:reportType forwards query params and preserves upstream report payload', async () => {
@@ -142,11 +145,14 @@ test('GET /api/inventory/reports/:reportType preserves upstream status and retur
   assert.equal(validationResponse.body.error.code, 'REPORT_NOT_FOUND');
 
   const unavailableApp = buildAppWith(async () => {
-    throw new Error('connect ECONNREFUSED');
+    throw Object.assign(new Error('connect ECONNREFUSED'), {
+      cause: { code: 'ECONNREFUSED', errno: -4078 },
+    });
   });
 
   const unavailableResponse = await request(unavailableApp).get('/api/inventory/reports/stock');
 
   assert.equal(unavailableResponse.status, 502);
-  assert.equal(unavailableResponse.body.error, 'Inventory service unavailable');
+  assert.equal(unavailableResponse.body.error.code, 'UPSTREAM_UNAVAILABLE');
+  assert.equal(unavailableResponse.body.success, false);
 });

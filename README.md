@@ -1,70 +1,114 @@
-# STOCKERR — Backend MS-01
+# STOCKERR — Monorepo
 
-Implementación backend para **MS-01 Servicio de Autenticación y Sesión** con integración por API Gateway y utilidades compartidas.
+Sistema de gestión de inventario y stock. Monorepo con API Gateway, microservicios backend y frontend React.
 
-## Componentes incluidos
+## Estructura del monorepo
 
-- `services/auth-service` (login/logout/refresh/verify)
-- `api-gateway` (pasarela para consumo de cliente web)
-- `shared` (roles, respuestas, JWT, manejo de errores)
-- `docker-compose.yml` para levantar entorno local con contenedores
+```
+stockerr1/
+├── api-gateway/                  # Punto de entrada único (puerto 3000)
+├── frontend/                     # SPA React 19 + Vite
+├── services/
+│   ├── auth-service/             # MS-01 Autenticación y sesión
+│   ├── user-service/             # MS-02 Gestión de usuarios
+│   ├── category-service/         # MS-03 Categorías
+│   ├── product-service/          # MS-04 Productos y catálogo
+│   ├── inventory-service/        # MS-05 Inventario (stock, alertas, movimientos)
+│   ├── audit-service/            # MS-09 Auditoría
+│   ├── config-service/           # MS-11 Configuración del sistema
+│   ├── export-service/           # MS-12 Exportación de datos
+│   ├── barcode-service/          # MS-08 Códigos de barras (esqueleto)
+│   └── supplier-service/         # MS-10 Proveedores (no implementado)
+└── shared/                       # Utilidades compartidas entre servicios
+    ├── middlewares/               # verifyJWT (middleware JWT zero-trust)
+    └── constants/                 # roles.js (constantes de roles y permisos)
+```
 
 ## Requisitos
 
-- Docker Desktop (o Docker Engine + Docker Compose)
-- Puertos libres: `3000`, `3002`, `5433`
+- Node.js 22+
+- Docker Desktop (o Docker Engine + Docker Compose) para entorno completo
+- Puertos libres: `3000` (gateway), `5433` (PostgreSQL)
 
-## Levantar entorno con Docker
+## Cómo correr
 
-Desde la raíz del repositorio:
+### Entorno completo con Docker
 
 ```bash
 docker compose up --build
 ```
 
-La base de datos se inicializa automáticamente con el backup SQL ubicado en:
+El gateway queda accesible en `http://localhost:3000`. Los microservicios se comunican por red interna Docker (puertos no expuestos al host).
 
-`docker/postgres/init/01_backup_stockerrbd.sql`
+### Desarrollo local (servicios individuales)
+
+Cada servicio se puede ejecutar de forma independiente:
+
+```bash
+npm --prefix services/auth-service start
+npm --prefix api-gateway start
+```
+
+Variables de entorno requeridas (varían por servicio, ver `.env.example` en cada uno).
 
 ## Verificar funcionamiento
 
-### 1) Health básico
-
 ```bash
+# Test básico del gateway
 curl http://localhost:3000/
-curl http://localhost:3002/
-```
 
-### 2) Login
-
-```bash
+# Login
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"nombre_usuario":"admin","contrasena":"Admin1234"}'
+  -d '{"correo":"admin","contrasena":"Admin1234"}'
 ```
 
-### 3) Apagar contenedores
+### Tests automatizados
 
 ```bash
-docker compose down
+# Todos los tests del monorepo
+npm run verify:all
+
+# Tests por servicio
+npm run verify:gateway      # solo api-gateway
+npm run verify:ms02         # solo user-service
+npm run verify:ms04         # solo product-service
+npm run verify:ms05         # solo inventory-service
 ```
 
-Para eliminar también volumen de base de datos:
+**Cobertura actual de `verify:all`:**
 
-```bash
-docker compose down -v
-```
+| Servicio | Tests | Estado |
+|----------|-------|--------|
+| auth-service | Unit + Integración | ✅ |
+| user-service | Integración | ✅ |
+| category-service | Integración | ✅ |
+| product-service | Unit + Integración | ✅ |
+| inventory-service | Integración | ✅ |
+| audit-service | Unit | ✅ |
+| export-service | Unit | ✅ |
+| barcode-service | — | 🟡 Sin tests aún |
+| config-service | Integración | ✅ |
+| api-gateway | Integración | ✅ |
+| frontend | Vitest (React Testing Library) | ✅ |
 
-> Importante: PostgreSQL solo ejecuta los scripts de `docker-entrypoint-initdb.d` cuando el volumen está vacío. Si querés reimportar el backup, usá `docker compose down -v` y luego `docker compose up --build`.
+## Limitaciones conocidas
 
-## Notas de alcance
-
-- Este compose deja operativo el **backend MS-01 + gateway + PostgreSQL**.
-- El `auth-service` actual funciona con repositorio en memoria para autenticación demo y deja preparada la configuración de base de datos para iteración siguiente.
+- **supplier-service (MS-10)**: No implementado. El gateway responde `501 Not Implemented` en `/api/suppliers`.
+- **barcode-service (MS-08)**: Esqueleto sin rutas ni lógica de negocio.
+- **PostgreSQL**: Solo se ejecuta en Docker. Los tests usan repositorios en memoria.
+- **Frontend**: Los tests de frontend requieren jsdom (configurado en vitest).
+- **verify:all**: Ejecuta los tests en serie. Servicios sin tests (barcode-service) emiten un aviso `baseline temporal`.
 
 ## Documentación técnica
 
 - `docs/Backend_Entregable_MS01.md`
 - `docs/QA_Guia_Verificacion_MS01_Gateway.md`
 - `docs/Frontend_Integracion_MS01_Gateway.md`
-- `MS-01_Reporte_Tecnico_Integracion.md`
+
+## Apagar contenedores
+
+```bash
+docker compose down
+docker compose down -v   # elimina también el volumen de base de datos
+```

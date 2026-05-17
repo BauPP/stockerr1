@@ -1,6 +1,7 @@
 const { Router } = require('express');
 
 const { ADMINISTRADOR, OPERADOR } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path, query) {
   const searchParams = new URLSearchParams();
@@ -65,9 +66,7 @@ function createProductRoutes({ productServiceUrl, authMiddleware, fetchImpl = fe
     authMiddleware,
     requireRoles([ADMINISTRADOR, OPERADOR]),
     (req, res, next) =>
-      proxyToProductService(req, res, productServiceUrl, '/api/products', 'GET', fetchImpl).catch(
-        next
-      )
+      proxyToProductService(req, res, productServiceUrl, '/api/products', 'GET', fetchImpl      ).catch((err) => handleProxyError(err, res))
   );
 
   router.get(

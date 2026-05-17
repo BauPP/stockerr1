@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const { ADMINISTRADOR } = require('../../../shared/constants/roles');
+const { handleProxyError } = require('../middlewares/proxy-error.middleware');
 
 function buildProxyUrl(baseUrl, path, query) {
   const searchParams = new URLSearchParams();
@@ -71,7 +72,7 @@ function createUserRoutes({ userServiceUrl, authMiddleware, fetchImpl = fetch })
         '/api/users',
         'POST',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.get(
@@ -86,7 +87,7 @@ function createUserRoutes({ userServiceUrl, authMiddleware, fetchImpl = fetch })
         '/api/users',
         'GET',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.get(
@@ -101,7 +102,7 @@ function createUserRoutes({ userServiceUrl, authMiddleware, fetchImpl = fetch })
         `/api/users/${req.params.id}`,
         'GET',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.put(
@@ -116,7 +117,7 @@ function createUserRoutes({ userServiceUrl, authMiddleware, fetchImpl = fetch })
         `/api/users/${req.params.id}`,
         'PUT',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   router.delete(
@@ -131,7 +132,7 @@ function createUserRoutes({ userServiceUrl, authMiddleware, fetchImpl = fetch })
         `/api/users/${req.params.id}`,
         'DELETE',
         fetchImpl
-      ).catch(next)
+      ).catch((err) => handleProxyError(err, res))
   );
 
   return router;
