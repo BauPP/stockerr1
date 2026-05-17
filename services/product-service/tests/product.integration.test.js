@@ -50,10 +50,26 @@ function buildTestContext() {
     ],
   });
 
-  const app = createApp({ repository });
+  const app = createApp({
+    repository,
+    verifyJWT: (req, _res, next) => {
+      req.authUser = { id_usuario: 1, rol: 'Administrador', nombre: 'Admin' };
+      next();
+    },
+  });
 
   return { app, repository };
 }
+
+test('GET /api/products rechaza 401 sin token JWT', async () => {
+  const { InMemoryProductRepository } = require('../src/repositories/product.repository');
+  const repository = new InMemoryProductRepository({ products: [], categories: [] });
+  const app = createApp({ repository, authServiceUrl: 'http://auth:3002' });
+
+  const response = await request(app).get('/api/products');
+
+  assert.equal(response.status, 401);
+});
 
 test('POST /api/products crea producto y retorna warning si precio de venta es menor al de compra', async () => {
   const { app, repository } = buildTestContext();

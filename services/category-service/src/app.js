@@ -11,6 +11,7 @@ const {
 const { CategoryService } = require('./services/category.service');
 const { CategoryController } = require('./controllers/category.controller');
 const { createCategoryRoutes } = require('./routes/category.routes');
+const { createVerifyJWT } = require('../../../shared/middlewares/verifyJWT');
 
 function createApp(options = {}) {
   const app = express();
@@ -29,6 +30,13 @@ function createApp(options = {}) {
 
   const controller = options.controller || new CategoryController(service);
 
+  const verifyJWT =
+    options.verifyJWT ||
+    createVerifyJWT({
+      authServiceUrl:
+        options.authServiceUrl || process.env.AUTH_SERVICE_URL || 'http://auth-service:3002',
+    });
+
   app.use(cors());
   app.use(express.json());
 
@@ -36,7 +44,7 @@ function createApp(options = {}) {
     res.json({ success: true, message: 'Category Service activo' });
   });
 
-  app.use('/api/categories', createCategoryRoutes(controller));
+  app.use('/api/categories', verifyJWT, createCategoryRoutes(controller));
 
   app.use(errorHandler);
 

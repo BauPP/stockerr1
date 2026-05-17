@@ -53,10 +53,23 @@ function buildTestContext() {
     serviceOptions: {
       bcryptSaltRounds: 4,
     },
+    verifyJWT: (req, _res, next) => {
+      req.authUser = { id_usuario: 1, rol: 'Administrador', nombre: 'Admin Principal' };
+      next();
+    },
   });
 
   return { app, repository };
 }
+
+test('GET /api/users rechaza 401 sin token JWT', async () => {
+  const repository = new InMemoryUserRepository({ users: [] });
+  const app = createApp({ repository, authServiceUrl: 'http://auth:3002' });
+
+  const response = await request(app).get('/api/users');
+
+  assert.equal(response.status, 401);
+});
 
 test('POST /api/users crea usuario con hash bcrypt sin exponer contraseña', async () => {
   const { app, repository } = buildTestContext();

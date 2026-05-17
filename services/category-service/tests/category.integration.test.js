@@ -34,8 +34,24 @@ function createTestApp({ categories, products } = {}) {
       ],
   });
 
-  return createApp({ repository });
+  return createApp({
+    repository,
+    verifyJWT: (req, _res, next) => {
+      req.authUser = { id_usuario: 1, rol: 'Administrador', nombre: 'Admin' };
+      next();
+    },
+  });
 }
+
+test('GET /api/categories rechaza 401 sin token JWT', async () => {
+  const { InMemoryCategoryRepository } = require('../src/app');
+  const repository = new InMemoryCategoryRepository({ categories: [], products: [] });
+  const app = createApp({ repository, authServiceUrl: 'http://auth:3002' });
+
+  const response = await request(app).get('/api/categories');
+
+  assert.equal(response.status, 401);
+});
 
 test('POST /api/categories crea una categoria nueva', async () => {
   const app = createTestApp({ products: [] });

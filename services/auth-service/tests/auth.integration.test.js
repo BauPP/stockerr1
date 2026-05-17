@@ -1,3 +1,5 @@
+'use strict';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
@@ -9,6 +11,7 @@ function createTestApp() {
   const seedUsers = [
     {
       id_usuario: 10,
+      correo: 'qa_admin@stocker.test',
       nombre_usuario: 'qa_admin',
       nombre: 'QA Admin',
       rol: 'Administrador',
@@ -31,11 +34,11 @@ function createTestApp() {
   });
 }
 
-test('POST /api/auth/login devuelve token con credenciales válidas', async () => {
+test('POST /api/auth/login devuelve token con correo válido', async () => {
   const app = createTestApp();
 
   const response = await request(app).post('/api/auth/login').send({
-    nombre_usuario: 'qa_admin',
+    correo: 'qa_admin@stocker.test',
     contrasena: 'Admin1234',
   });
 
@@ -45,19 +48,73 @@ test('POST /api/auth/login devuelve token con credenciales válidas', async () =
   assert.equal(response.body.data.rol, 'Administrador');
 });
 
+test('POST /api/auth/login preserva estructura de respuesta', async () => {
+  const app = createTestApp();
+
+  const response = await request(app).post('/api/auth/login').send({
+    correo: 'qa_admin@stocker.test',
+    contrasena: 'Admin1234',
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.ok(response.body.data.token);
+  assert.ok(response.body.data.id_usuario);
+  assert.equal(response.body.data.nombre, 'QA Admin');
+  assert.equal(response.body.data.rol, 'Administrador');
+});
+
+test('POST /api/auth/login rechaza solicitud sin campo correo', async () => {
+  const app = createTestApp();
+
+  const response = await request(app).post('/api/auth/login').send({
+    contrasena: 'Admin1234',
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+
+test('POST /api/auth/login rechaza solicitud con correo vacío', async () => {
+  const app = createTestApp();
+
+  const response = await request(app).post('/api/auth/login').send({
+    correo: '',
+    contrasena: 'Admin1234',
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+
+test('POST /api/auth/login rechaza solicitud con nombre_usuario en lugar de correo', async () => {
+  const app = createTestApp();
+
+  const response = await request(app).post('/api/auth/login').send({
+    nombre_usuario: 'qa_admin',
+    contrasena: 'Admin1234',
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
+
 test('POST /api/auth/login bloquea cuenta tras 3 intentos fallidos', async () => {
   const app = createTestApp();
 
   for (let i = 0; i < 2; i += 1) {
     const response = await request(app).post('/api/auth/login').send({
-      nombre_usuario: 'qa_admin',
+      correo: 'qa_admin@stocker.test',
       contrasena: 'incorrecta',
     });
     assert.equal(response.status, 401);
   }
 
   const thirdAttempt = await request(app).post('/api/auth/login').send({
-    nombre_usuario: 'qa_admin',
+    correo: 'qa_admin@stocker.test',
     contrasena: 'incorrecta',
   });
 
@@ -69,7 +126,7 @@ test('GET /api/auth/verify valida token emitido', async () => {
   const app = createTestApp();
 
   const login = await request(app).post('/api/auth/login').send({
-    nombre_usuario: 'qa_admin',
+    correo: 'qa_admin@stocker.test',
     contrasena: 'Admin1234',
   });
 
@@ -86,7 +143,7 @@ test('POST /api/auth/logout revoca token y verify devuelve 401', async () => {
   const app = createTestApp();
 
   const login = await request(app).post('/api/auth/login').send({
-    nombre_usuario: 'qa_admin',
+    correo: 'qa_admin@stocker.test',
     contrasena: 'Admin1234',
   });
 
@@ -110,7 +167,7 @@ test('POST /api/auth/refresh devuelve nuevo token e invalida token previo', asyn
   const app = createTestApp();
 
   const login = await request(app).post('/api/auth/login').send({
-    nombre_usuario: 'qa_admin',
+    correo: 'qa_admin@stocker.test',
     contrasena: 'Admin1234',
   });
 

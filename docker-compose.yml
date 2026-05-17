@@ -20,8 +20,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
-    ports:
-      - "3002:3002"
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,8 +37,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
-    ports:
-      - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,8 +54,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
-    ports:
-      - "3003:3003"
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,8 +72,6 @@ services:
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
       MS09_AUDIT_WEBHOOK_URL: http://audit-service:3006/api/audit/events
-    ports:
-      - "3004:3004"
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,8 +92,6 @@ services:
       DB_NAME: stockerr
       MS06_MOVEMENT_WEBHOOK_URL: ""
       MS09_MOVEMENT_WEBHOOK_URL: http://audit-service:3006/api/audit/events
-    ports:
-      - "3005:3005"
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,8 +112,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
-    ports:
-      - "3006:3006"
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,8 +134,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: stockerr
       DB_NAME: stockerr
-    ports:
-      - "3007:3007"
     depends_on:
       postgres:
         condition: service_healthy
