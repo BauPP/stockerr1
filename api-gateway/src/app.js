@@ -79,26 +79,10 @@ const { createProviderRoutes } = require('./routes/provider.routes');
 const { createInventoryRouter } = require('./routes/inventory.routes');
 const { createAuditRoutes } = require('./routes/audit.routes');
 const { createExportRoutes } = require('./routes/export.routes');
+const { createConfigRoutes } = require('./routes/config.routes');
+const { createBarcodeRoutes } = require('./routes/barcode.routes');
+const { createSupplierRoutes } = require('./routes/supplier.routes');
 
-/**
- * Construye la app Express del gateway.
- *
- * Todas las dependencias (URLs de servicios, fetch, middlewares) se inyectan
- * por opciones para facilitar tests con servicios efímeros (`app.listen(0)`).
- *
- * @param {object} [options]
- * @param {string} [options.authServiceUrl]
- * @param {string} [options.userServiceUrl]
- * @param {string} [options.categoryServiceUrl]
- * @param {string} [options.productServiceUrl]
- * @param {string} [options.providerServiceUrl]
- * @param {string} [options.inventoryServiceUrl]
- * @param {string} [options.auditServiceUrl]
- * @param {string} [options.barcodeServiceUrl]
- * @param {string} [options.configServiceUrl]
- * @param {string} [options.supplierServiceUrl]
- * @param {Function} [options.fetchImpl=fetch]
- */
 function createApp(options = {}) {
   const config = createServicesConfig(options);
   const fetchImpl = options.fetchImpl || fetch;
@@ -111,11 +95,6 @@ function createApp(options = {}) {
     res.json({ success: true, message: 'API Gateway STOCKERR activo 🚀' });
   });
 
-  // Middleware de autenticación reutilizable: lo creamos una sola vez con la
-  // URL del auth-service y la implementación de fetch ya cerradas.
-  //
-  // Permitimos que el caller inyecte un authMiddleware propio (útil para tests
-  // que mockean el upstream y no quieren montar un auth-service real).
   const authMiddleware =
     options.authMiddleware ||
     createAuthMiddleware({
@@ -123,9 +102,6 @@ function createApp(options = {}) {
       fetchImpl,
     });
 
-  // -----------------------------------------------------------------------
-  // /api/auth — login, logout, refresh, verify (MS-01)
-  // -----------------------------------------------------------------------
   app.use(
     '/api/auth',
     createAuthRoutes({
@@ -134,9 +110,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/users — gestión de usuarios (MS-02), solo Administrador
-  // -----------------------------------------------------------------------
   app.use(
     '/api/users',
     createUserRoutes({
@@ -146,9 +119,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/categories — categorías (MS-03)
-  // -----------------------------------------------------------------------
   app.use(
     '/api/categories',
     createCategoryRoutes({
@@ -158,9 +128,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/products — catálogo de productos (MS-04)
-  // -----------------------------------------------------------------------
   app.use(
     '/api/products',
     createProductRoutes({
@@ -179,12 +146,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/inventory — alertas (MS-06) + movimientos (MS-05/MS-09)
-  // -----------------------------------------------------------------------
-  // Tema histórico: el inventory-service expone /inventory/alerts (sin /api,
-  // herencia de la rama MS-06) y /api/inventory/movements (rama MS-09). El
-  // router unifica ambos bajo /api/inventory/* en el gateway.
   app.use(
     '/api/inventory',
     createInventoryRouter({
@@ -194,11 +155,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/audit — log de auditoría (MS-09), solo Administrador
-  // -----------------------------------------------------------------------
-  // El requireAdmin se aplica DENTRO de createAuditRoutes, garantizando
-  // que ni siquiera GET /api/audit/logs pase el guard sin rol Admin.
   app.use(
     '/api/audit',
     createAuditRoutes({
@@ -208,9 +164,6 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // /api/export - exportacion masiva de datos (MS-12), solo Administrador
-  // -----------------------------------------------------------------------
   app.use(
     '/api/export',
     createExportRoutes({
@@ -220,10 +173,33 @@ function createApp(options = {}) {
     })
   );
 
-  // -----------------------------------------------------------------------
-  // Smoke test endpoint protegido: confirma que el JWT es válido
-  // (lo usa gateway-auth.integration.test.js).
-  // -----------------------------------------------------------------------
+  app.use(
+    '/api/config',
+    createConfigRoutes({
+      configServiceUrl: config.configServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
+  app.use(
+    '/api/barcodes',
+    createBarcodeRoutes({
+      barcodeServiceUrl: config.barcodeServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
+  app.use(
+    '/api/suppliers',
+    createSupplierRoutes({
+      supplierServiceUrl: config.supplierServiceUrl,
+      authMiddleware,
+      fetchImpl,
+    })
+  );
+
   app.get('/api/protected/ping', authMiddleware, (req, res) => {
     res.json({
       success: true,
@@ -234,10 +210,6 @@ function createApp(options = {}) {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Manejador de errores global. Cualquier error que escape de los handlers
-  // termina aquí con un payload uniforme.
-  // -----------------------------------------------------------------------
   app.use((err, _req, res, _next) => {
     res.status(err.status || 500).json({
       success: false,

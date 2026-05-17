@@ -1,5 +1,4 @@
 'use strict';
-
 class PgAuthRepository {
   constructor({ pool }) {
     this.pool = pool;
@@ -25,14 +24,11 @@ class PgAuthRepository {
     `;
     const { rows } = await this.pool.query(query, [correo]);
     if (!rows[0]) return null;
-
     const row = rows[0];
-
     let bloqueo_hasta = this.lockUntil.get(row.id_usuario) ?? null;
     if (row.bloqueado && bloqueo_hasta === null) {
       bloqueo_hasta = Date.now() + 99 * 365 * 24 * 60 * 60 * 1000;
     }
-
     return {
       id_usuario:        row.id_usuario,
       correo:            row.correo,
@@ -51,20 +47,17 @@ class PgAuthRepository {
 
   async registerFailedAttempt(user, maxLoginAttempts, lockMinutes) {
     user.intentos_fallidos += 1;
-
     if (user.intentos_fallidos >= maxLoginAttempts) {
       const bloqueo_hasta = Date.now() + lockMinutes * 60 * 1000;
       this.lockUntil.set(user.id_usuario, bloqueo_hasta);
       user.bloqueo_hasta = bloqueo_hasta;
       user.intentos_fallidos = 0;
-
       await this.pool.query(
         'UPDATE usuarios SET intentos_fallidos = 0, bloqueado = true WHERE id_usuario = $1',
         [user.id_usuario]
       );
       return { blocked: true, blockedUntil: bloqueo_hasta };
     }
-
     await this.pool.query(
       'UPDATE usuarios SET intentos_fallidos = $1 WHERE id_usuario = $2',
       [user.intentos_fallidos, user.id_usuario]
@@ -76,7 +69,6 @@ class PgAuthRepository {
     this.lockUntil.delete(user.id_usuario);
     user.intentos_fallidos = 0;
     user.bloqueo_hasta = null;
-
     await this.pool.query(
       'UPDATE usuarios SET intentos_fallidos = 0, bloqueado = false WHERE id_usuario = $1',
       [user.id_usuario]
@@ -95,6 +87,26 @@ class PgAuthRepository {
       return false;
     }
     return true;
+  }
+
+  async getMaxLoginAttempts() {
+    try {
+      const { rows } = await this.pool.query(
+        "SELECT valor FROM parametros_sistema WHERE clave = 'max_intentos_login' LIMIT 1"
+      );
+      if (rows[0]) return parseInt(rows[0].valor, 10);
+    } catch (_) {}
+    return 3;
+  }
+
+  async getLockMinutes() {
+    try {
+      const { rows } = await this.pool.query(
+        "SELECT valor FROM parametros_sistema WHERE clave = 'tiempo_bloqueo_minutos' LIMIT 1"
+      );
+      if (rows[0]) return parseInt(rows[0].valor, 10);
+    } catch (_) {}
+    return 15;
   }
 }
 

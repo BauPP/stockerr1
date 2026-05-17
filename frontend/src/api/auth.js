@@ -30,7 +30,7 @@ export async function loginRequest(correo, contrasena) {
   if (response.ok) return data
 
   if (response.status === 401) throw new Error('Correo o contraseña incorrectos.')
-  if (response.status === 423) throw new Error('Cuenta bloqueada. Demasiados intentos fallidos. Inténtalo en 15 minutos.')
+  if (response.status === 423) throw new Error(data?.error?.message || 'Cuenta bloqueada. Demasiados intentos fallidos.')
   if (response.status === 403) throw new Error('Tu cuenta está deshabilitada. Contacta al Administrador.')
 
   throw new Error(data?.mensaje || 'Error inesperado. Inténtalo de nuevo.')

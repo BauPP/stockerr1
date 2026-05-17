@@ -4,18 +4,13 @@ const { randomUUID } = require('crypto');
 const { createHttpError } = require('../models/auth.model');
 
 function parseExpiresToSeconds(expiresIn) {
-  if (typeof expiresIn === 'number') {
-    return expiresIn;
-  }
-
+  if (typeof expiresIn === 'number') return expiresIn;
   if (typeof expiresIn === 'string' && expiresIn.endsWith('m')) {
     return Number(expiresIn.replace('m', '')) * 60;
   }
-
   if (typeof expiresIn === 'string' && expiresIn.endsWith('h')) {
     return Number(expiresIn.replace('h', '')) * 3600;
   }
-
   return 1800;
 }
 
@@ -54,9 +49,7 @@ class AuthService {
 
   decodeWithoutVerification(token) {
     const decoded = jwt.decode(token);
-    if (!decoded || !decoded.exp) {
-      return null;
-    }
+    if (!decoded || !decoded.exp) return null;
     return decoded;
   }
 
@@ -67,31 +60,35 @@ class AuthService {
 
     if (!user || user.estado !== 'activo') {
       void this.auditNotifier
-        .notifyLoginFailure({
-          identifier: correo,
-          reason: 'credenciales_invalidas',
-        })
+        .notifyLoginFailure({ identifier: correo, reason: 'credenciales_invalidas' })
         .catch(() => {});
       throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contrasena incorrectos');
     }
 
     if (user.bloqueo_hasta && Date.now() < user.bloqueo_hasta) {
+      const lockMinutes = this.repository.getLockMinutes
+        ? await this.repository.getLockMinutes()
+        : this.lockMinutes;
       void this.auditNotifier
-        .notifyLoginFailure({
-          user,
-          identifier: correo,
-          reason: 'cuenta_bloqueada',
-        })
+        .notifyLoginFailure({ user, identifier: correo, reason: 'cuenta_bloqueada' })
         .catch(() => {});
-      throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', 'Cuenta bloqueada. Intente en 15 minutos');
+      throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', `Cuenta bloqueada. Intente en ${lockMinutes} minutos`);
     }
 
     const validPassword = await bcrypt.compare(contrasena, user.contrasena_hash);
     if (!validPassword) {
+      const maxAttempts = this.repository.getMaxLoginAttempts
+        ? await this.repository.getMaxLoginAttempts()
+        : this.maxLoginAttempts;
+
+      const lockMinutes = this.repository.getLockMinutes
+        ? await this.repository.getLockMinutes()
+        : this.lockMinutes;
+
       const failed = await this.repository.registerFailedAttempt(
         user,
-        this.maxLoginAttempts,
-        this.lockMinutes
+        maxAttempts,
+        lockMinutes
       );
 
       void this.auditNotifier
@@ -103,7 +100,7 @@ class AuthService {
         .catch(() => {});
 
       if (failed.blocked) {
-        throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', 'Cuenta bloqueada. Intente en 15 minutos');
+        throw createHttpError(423, 'AUTH_ACCOUNT_BLOCKED', `Cuenta bloqueada. Intente en ${lockMinutes} minutos`);
       }
 
       throw createHttpError(401, 'AUTH_INVALID_CREDENTIALS', 'Correo o contrasena incorrectos');
@@ -114,11 +111,7 @@ class AuthService {
     const decoded = jwt.decode(token);
 
     void this.auditNotifier
-      .notifyLoginSuccess({
-        user,
-        identifier: correo,
-        sessionId: decoded?.jti || null,
-      })
+      .notifyLoginSuccess({ user, identifier: correo, sessionId: decoded?.jti || null })
       .catch(() => {});
 
     return {
@@ -135,7 +128,6 @@ class AuthService {
     if (revoked) {
       throw createHttpError(401, 'AUTH_TOKEN_REVOKED', 'Token revocado');
     }
-
     try {
       const payload = jwt.verify(token, this.jwtSecret);
       return {
@@ -157,7 +149,6 @@ class AuthService {
     if (!decoded) {
       throw createHttpError(401, 'AUTH_TOKEN_INVALID', 'Token invalido');
     }
-
     await this.repository.revokeToken(token, decoded.exp * 1000);
     return { message: 'Sesion cerrada correctamente' };
   }
@@ -165,9 +156,7 @@ class AuthService {
   async refresh(token) {
     const currentPayload = await this.verify(token);
     const decoded = this.decodeWithoutVerification(token);
-
     await this.repository.revokeToken(token, decoded.exp * 1000);
-
     const newToken = this.signToken(currentPayload);
     return {
       token: newToken,

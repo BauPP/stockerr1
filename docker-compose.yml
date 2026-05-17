@@ -45,7 +45,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    
+
   category-service:
     build:
       context: .
@@ -180,6 +180,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  config-service:
+    build:
+      context: .
+      dockerfile: services/config-service/Dockerfile
+    container_name: stockerr-config-service
+    environment:
+      PORT: 3009
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: stockerr
+      DB_NAME: stockerr
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  barcode-service:
+    build:
+      context: .
+      dockerfile: services/barcode-service/Dockerfile
+    container_name: stockerr-barcode-service
+    environment:
+      PORT: 3010
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: stockerr
+      DB_NAME: stockerr
+    ports:
+      - "3010:3010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -195,6 +233,9 @@ services:
       AUDIT_SERVICE_URL: http://audit-service:3006
       EXPORT_SERVICE_URL: http://export-service:3007
       PROVIDER_SERVICE_URL: http://supplier-service:3008
+      SUPPLIER_SERVICE_URL: http://supplier-service:3008
+      CONFIG_SERVICE_URL: http://config-service:3009
+      BARCODE_SERVICE_URL: http://barcode-service:3010
     ports:
       - "3000:3000"
     depends_on:
@@ -211,6 +252,12 @@ services:
       audit-service:
         condition: service_started
       export-service:
+        condition: service_started
+      supplier-service:
+        condition: service_started
+      config-service:
+        condition: service_started
+      barcode-service:
         condition: service_started
     restart: unless-stopped
 
