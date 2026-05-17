@@ -10,6 +10,10 @@ import Inventory from './pages/Inventory/Inventory.jsx'
 import AlertsPage from './pages/Alerts/AlertsPage'
 import Audit from './pages/Audit/Audit.jsx'
 import ReportsPage from './pages/Reports/ReportsPage.jsx'
+import ProvidersPage from './pages/Providers/ProvidersPage.jsx'
+import BarcodePage from './pages/Barcode/BarcodePage.jsx'
+import ConfigPage from './pages/Config/ConfigPage.jsx'
+import Dashboard from './pages/Dashboard/Dashboard' 
 
 function HomeRedirect() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -39,14 +43,6 @@ function AdminRoute({ children }) {
   return children
 }
 
-function Dashboard() {
-  return (
-    <Layout>
-      <h1>Dashboard</h1>
-      <p>Contenido inicial</p>
-    </Layout>
-  )
-}
 
 export default function App() {
   return (
@@ -61,7 +57,7 @@ export default function App() {
 
       <Route path="/dashboard/*" element={
         <PrivateRoute>
-          <Dashboard />
+          <Dashboard /> {/* ✅ Ahora usa el Dashboard importado correctamente */}
         </PrivateRoute>
       } />
 
@@ -122,6 +118,29 @@ export default function App() {
         <AdminRoute>
           <Layout>
             <Audit />
+          </Layout>
+        </AdminRoute>
+      } />
+
+            {/* MS-08 — Admin y Operador (generar solo Admin, controlado en la vista) */}
+      <Route path="/codigos-barras" element={
+        <PrivateRoute>
+          <Layout><BarcodePage /></Layout>
+        </PrivateRoute>
+      } />
+
+      {/* MS-11 — Solo Administrador */}
+      <Route path="/configuracion" element={
+        <AdminRoute>
+          <Layout><ConfigPage /></Layout>
+        </AdminRoute>
+      } />
+
+      {/* MS-10 — solo Administrador */}
+      <Route path="/proveedores" element={
+        <AdminRoute>
+          <Layout>
+            <ProvidersPage />
           </Layout>
         </AdminRoute>
       } />
