@@ -15,9 +15,7 @@
  *   - user-service:      3004
  *   - inventory-service: 3005
  *   - audit-service:     3006
- *   - barcode-service:   3007
- *   - config-service:    3008
- *   - supplier-service:  3009
+ *   - export-service:    3007
  *
  * @param {object} [overrides]
  * @returns {{
@@ -27,9 +25,7 @@
  *   userServiceUrl: string,
  *   inventoryServiceUrl: string,
  *   auditServiceUrl: string,
- *   barcodeServiceUrl: string,
- *   configServiceUrl: string,
- *   supplierServiceUrl: string
+ *   exportServiceUrl: string
  * }}
  */
 function createServicesConfig(overrides = {}) {
@@ -58,18 +54,10 @@ function createServicesConfig(overrides = {}) {
       overrides.auditServiceUrl ||
       process.env.AUDIT_SERVICE_URL ||
       'http://localhost:3006',
-    barcodeServiceUrl:
-      overrides.barcodeServiceUrl ||
-      process.env.BARCODE_SERVICE_URL ||
+    exportServiceUrl:
+      overrides.exportServiceUrl ||
+      process.env.EXPORT_SERVICE_URL ||
       'http://localhost:3007',
-    configServiceUrl:
-      overrides.configServiceUrl ||
-      process.env.CONFIG_SERVICE_URL ||
-      'http://localhost:3008',
-    supplierServiceUrl:
-      overrides.supplierServiceUrl ||
-      process.env.SUPPLIER_SERVICE_URL ||
-      'http://localhost:3009',
   };
 }
 

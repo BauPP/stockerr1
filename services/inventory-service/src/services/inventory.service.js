@@ -23,6 +23,7 @@ const {
   ALERT_TYPES,
   EXPIRING_SOON_DAYS,
   MOVEMENT_TYPES,
+  REPORT_TYPES,
   ValidationError,
   calculateDaysToExpire,
   createDerivedAlert,
@@ -32,6 +33,127 @@ const {
   normalizeAlertFilters,
   toIsoString,
 } = require('../models/inventory.model');
+
+function normalizeSalesReason(value) {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized.includes('venta') ? 'venta' : normalized;
+}
+
+function toReportNumber(value) {
+  const normalized = Number(value || 0);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function roundCurrency(value) {
+  return Number(value.toFixed(2));
+}
+
+function formatDateInTimeZone(date = new Date(), timeZone = 'America/Bogota') {
+  const normalizedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(normalizedDate.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  })
+    .formatToParts(normalizedDate)
+    .reduce((accumulator, part) => {
+      accumulator[part.type] = part.value;
+      return accumulator;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function getColombiaTimestamp(date = new Date()) {
+  return formatDateInTimeZone(date, 'America/Bogota');
+}
+
+function formatColombiaDateTime(date) {
+  const formatted = formatDateInTimeZone(date, 'America/Bogota');
+  if (!formatted) {
+    return { fecha: null, hora: null };
+  }
+
+  const [fecha, hora = ''] = formatted.split(' ');
+  return { fecha, hora };
+}
+
+function buildReportSummary(items = []) {
+  return items.reduce(
+    (summary, item) => ({
+      total_items: summary.total_items + 1,
+      total_quantity: summary.total_quantity + toReportNumber(item.cantidad),
+      total_value: roundCurrency(summary.total_value + toReportNumber(item.valor_total)),
+    }),
+    {
+      total_items: 0,
+      total_quantity: 0,
+      total_value: 0,
+    }
+  );
+}
+
+const REPORT_COLUMNS = Object.freeze({
+  [REPORT_TYPES.MOVEMENTS]: [
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'tipo', label: 'Tipo' },
+    { key: 'motivo', label: 'Motivo' },
+    { key: 'cantidad', label: 'Cantidad' },
+    { key: 'stock_anterior', label: 'Stock anterior' },
+    { key: 'stock_posterior', label: 'Stock posterior' },
+    { key: 'usuario', label: 'Usuario' },
+  ],
+  [REPORT_TYPES.SALES]: [
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'tipo', label: 'Tipo' },
+    { key: 'cantidad', label: 'Cantidad' },
+    { key: 'precio_unitario', label: 'Precio unitario' },
+    { key: 'valor_total', label: 'Valor total' },
+  ],
+  [REPORT_TYPES.STOCK]: [
+    { key: 'producto', label: 'Producto' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'cantidad', label: 'Stock actual' },
+    { key: 'precio_unitario', label: 'Precio unitario' },
+    { key: 'valor_total', label: 'Valor inventario' },
+  ],
+});
+
+function buildReportPayload(reportType, filters, items) {
+  return {
+    meta: {
+      reportType,
+      generatedAt: new Date().toISOString(),
+      filters,
+    },
+    summary: buildReportSummary(items),
+    columns: REPORT_COLUMNS[reportType] || [],
+    items,
+  };
+}
 
 // ===========================================================================
 // MS-09 — Servicio de movimientos
@@ -65,12 +187,13 @@ function isActiveProvider(provider) {
  * fechas ISO completas vs. fecha+hora separadas, etc.).
  */
 function formatMovementResponse(movement, actorRoleOverride) {
-  const timestamp = new Date(movement.fecha_hora_exacta || movement.fecha_movimiento);
+  const timestamp = movement.fecha_hora_exacta || movement.fecha_movimiento;
+  const { fecha, hora } = formatColombiaDateTime(timestamp);
   return {
     id_movimiento: movement.id_movimiento,
     tipo: movement.movement_type || movement.tipo_movimiento,
-    fecha: timestamp.toISOString().slice(0, 10),
-    hora: timestamp.toISOString().slice(11, 19),
+    fecha,
+    hora,
     id_producto: movement.id_producto,
     nombre_producto: movement.nombre_producto,
     cantidad: Number(movement.cantidad),
@@ -91,9 +214,14 @@ function formatMovementResponse(movement, actorRoleOverride) {
 }
 
 class InventoryService {
-  constructor({ repository, notifier = { notifyMovementRegistered: async () => {} } }) {
+  constructor({
+    repository,
+    notifier = { notifyMovementRegistered: async () => {} },
+    nowProvider = () => new Date(),
+  }) {
     this.repository = repository;
     this.notifier = notifier;
+    this.nowProvider = nowProvider;
   }
 
   /**
@@ -263,7 +391,7 @@ class InventoryService {
           numero_factura: payload.numero_factura,
           comentarios: payload.comentario || payload.motivo_ajuste || payload.motivo,
           movement_type: payload.tipo_movimiento,
-          fecha_hora_exacta: new Date().toISOString(),
+          fecha_hora_exacta: getColombiaTimestamp(this.nowProvider()),
         },
         { trx }
       );
@@ -314,6 +442,21 @@ class InventoryService {
       totalPages: Math.ceil(result.total / result.size) || 1,
       items: result.items.map((movement) => formatMovementResponse(movement)),
     };
+  }
+
+  async getMovementReport(filters) {
+    const items = await this.repository.getMovementReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.MOVEMENTS, filters, items);
+  }
+
+  async getSalesReport(filters) {
+    const items = await this.repository.getSalesReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.SALES, filters, items);
+  }
+
+  async getStockReport(filters) {
+    const items = await this.repository.getStockReportRows(filters);
+    return buildReportPayload(REPORT_TYPES.STOCK, filters, items);
   }
 }
 
@@ -411,13 +554,16 @@ module.exports = {
   // MS-09
   InventoryService,
   formatMovementResponse,
+  getColombiaTimestamp,
 
   // MS-06
   ALERT_TYPES,
   EXPIRING_SOON_DAYS,
   applyAlertFilters,
+  buildReportSummary,
   createInventoryService,
   deriveAlerts,
   describeInventoryAlertSourceShape,
+  normalizeSalesReason,
   normalizeAlertFilters,
 };

@@ -95,3 +95,58 @@ test('GET /api/inventory/alerts returns 502 when inventory-service is unavailabl
   assert.equal(response.status, 502);
   assert.equal(response.body.error, 'Inventory service unavailable');
 });
+
+test('GET /api/inventory/reports/:reportType forwards query params and preserves upstream report payload', async () => {
+  const calls = [];
+  const app = buildAppWith(async (url) => {
+    calls.push(url.toString());
+    return {
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      async text() {
+        return JSON.stringify({
+          meta: { reportType: 'sales', generatedAt: '2026-05-03T00:00:00.000Z', filters: { categoria: 2 } },
+          summary: { total_items: 1, total_quantity: 2, total_value: 16 },
+          columns: [{ key: 'producto', label: 'Producto' }],
+          items: [{ producto: 'Papas Clasicas', cantidad: 2, valor_total: 16 }],
+        });
+      },
+    };
+  });
+
+  const response = await request(app)
+    .get('/api/inventory/reports/sales')
+    .query({ categoria: '2', fecha_inicio: '2026-04-15' });
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /\/api\/inventory\/reports\/sales/);
+  assert.match(calls[0], /categoria=2/);
+  assert.match(calls[0], /fecha_inicio=2026-04-15/);
+  assert.equal(response.body.meta.reportType, 'sales');
+  assert.equal(response.body.summary.total_value, 16);
+});
+
+test('GET /api/inventory/reports/:reportType preserves upstream status and returns 502 on connectivity errors', async () => {
+  const validationApp = buildAppWith(async () => ({
+    status: 404,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    async text() {
+      return JSON.stringify({ success: false, error: { code: 'REPORT_NOT_FOUND', message: 'Reporte no soportado' } });
+    },
+  }));
+
+  const validationResponse = await request(validationApp).get('/api/inventory/reports/unknown');
+
+  assert.equal(validationResponse.status, 404);
+  assert.equal(validationResponse.body.error.code, 'REPORT_NOT_FOUND');
+
+  const unavailableApp = buildAppWith(async () => {
+    throw new Error('connect ECONNREFUSED');
+  });
+
+  const unavailableResponse = await request(unavailableApp).get('/api/inventory/reports/stock');
+
+  assert.equal(unavailableResponse.status, 502);
+  assert.equal(unavailableResponse.body.error, 'Inventory service unavailable');
+});

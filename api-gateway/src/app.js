@@ -77,9 +77,7 @@ const { createCategoryRoutes } = require('./routes/category.routes');
 const { createProductRoutes } = require('./routes/product.routes');
 const { createInventoryRouter } = require('./routes/inventory.routes');
 const { createAuditRoutes } = require('./routes/audit.routes');
-const { createBarcodeRoutes } = require('./routes/barcode.routes');
-const { createConfigRoutes } = require('./routes/config.routes');
-const { createSupplierRoutes } = require('./routes/supplier.routes');
+const { createExportRoutes } = require('./routes/export.routes');
 
 /**
  * Construye la app Express del gateway.
@@ -200,36 +198,12 @@ function createApp(options = {}) {
   );
 
   // -----------------------------------------------------------------------
-  // /api/barcodes — consulta y generación de códigos de barras (MS-08)
+  // /api/export - exportacion masiva de datos (MS-12), solo Administrador
   // -----------------------------------------------------------------------
   app.use(
-    '/api/barcodes',
-    createBarcodeRoutes({
-      barcodeServiceUrl: config.barcodeServiceUrl,
-      authMiddleware,
-      fetchImpl,
-    })
-  );
-
-  // -----------------------------------------------------------------------
-  // /api/config — configuración del sistema (MS-11)
-  // -----------------------------------------------------------------------
-  app.use(
-    '/api/config',
-    createConfigRoutes({
-      configServiceUrl: config.configServiceUrl,
-      authMiddleware,
-      fetchImpl,
-    })
-  );
-
-  // -----------------------------------------------------------------------
-  // /api/suppliers — proveedores (MS-10, placeholder)
-  // -----------------------------------------------------------------------
-  app.use(
-    '/api/suppliers',
-    createSupplierRoutes({
-      supplierServiceUrl: config.supplierServiceUrl,
+    '/api/export',
+    createExportRoutes({
+      exportServiceUrl: config.exportServiceUrl,
       authMiddleware,
       fetchImpl,
     })

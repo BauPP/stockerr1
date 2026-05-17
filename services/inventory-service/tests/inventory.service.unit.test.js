@@ -4,10 +4,23 @@ const assert = require('node:assert/strict');
 const {
   ALERT_TYPES,
   EXPIRING_SOON_DAYS,
+  buildReportSummary,
   deriveAlerts,
+  getColombiaTimestamp,
+  normalizeSalesReason,
   normalizeAlertFilters,
   describeInventoryAlertSourceShape
 } = require('../src/services/inventory.service');
+const {
+  parseReportFilters,
+  REPORT_TYPES,
+  normalizeReportType,
+} = require('../src/models/inventory.model');
+
+test('getColombiaTimestamp conserva la fecha local de Colombia cuando UTC ya cambio de dia', () => {
+  const timestamp = getColombiaTimestamp(new Date('2026-05-05T02:15:00.000Z'));
+  assert.equal(timestamp, '2026-05-04 21:15:00');
+});
 
 test('deriveAlerts creates low-stock and high-stock alerts when thresholds are met', () => {
   const alerts = deriveAlerts([
@@ -131,4 +144,85 @@ test('describeInventoryAlertSourceShape documents the minimum source shape', () 
   assert.match(describeInventoryAlertSourceShape(), /minStock/);
   assert.match(describeInventoryAlertSourceShape(), /maxStock/);
   assert.match(describeInventoryAlertSourceShape(), /expirationDate/);
+});
+
+test('normalizeReportType normalizes aliases to supported MS-07 report types', () => {
+  assert.equal(normalizeReportType(' Movements '), REPORT_TYPES.MOVEMENTS);
+  assert.equal(normalizeReportType('sales'), REPORT_TYPES.SALES);
+  assert.equal(normalizeReportType('STOCK'), REPORT_TYPES.STOCK);
+});
+
+test('parseReportFilters normalizes compatible filters per report and trims values', () => {
+  assert.deepEqual(
+    parseReportFilters('movements', {
+      fecha_inicio: '2026-04-01',
+      fecha_fin: '2026-04-30',
+      categoria: ' 7 ',
+      producto: ' 15 ',
+      tipo: ' SALIDA ',
+    }),
+    {
+      reportType: 'movements',
+      fecha_inicio: '2026-04-01',
+      fecha_fin: '2026-04-30',
+      categoria: 7,
+      producto: 15,
+      tipo: 'salida',
+    }
+  );
+
+  assert.deepEqual(
+    parseReportFilters('stock', {
+      categoria: '3',
+      producto: '8',
+      tipo: 'entrada',
+      fecha_inicio: '2026-04-01',
+    }),
+    {
+      reportType: 'stock',
+      categoria: 3,
+      producto: 8,
+    }
+  );
+});
+
+test('parseReportFilters rejects invalid report dates and descending ranges', () => {
+  assert.throws(
+    () => parseReportFilters('movements', { fecha_inicio: '2026/04/01' }),
+    /YYYY-MM-DD/
+  );
+  assert.throws(
+    () => parseReportFilters('sales', {
+      fecha_inicio: '2026-04-30',
+      fecha_fin: '2026-04-01',
+    }),
+    /fecha_inicio no puede ser mayor/
+  );
+});
+
+test('normalizeSalesReason collapses observable sales aliases without breaking other reasons', () => {
+  assert.equal(normalizeSalesReason('Venta'), 'venta');
+  assert.equal(normalizeSalesReason(' VENTA MOSTRADOR '), 'venta');
+  assert.equal(normalizeSalesReason('salida por venta web'), 'venta');
+  assert.equal(normalizeSalesReason('Merma'), 'merma');
+});
+
+test('buildReportSummary keeps totals consistent with item collections', () => {
+  assert.deepEqual(
+    buildReportSummary([
+      { cantidad: 2, valor_total: 30 },
+      { cantidad: 3, valor_total: 45 },
+    ]),
+    {
+      total_items: 2,
+      total_quantity: 5,
+      total_value: 75,
+    }
+  );
+
+  assert.deepEqual(buildReportSummary([]), {
+    total_items: 0,
+    total_quantity: 0,
+    total_value: 0,
+  });
 });
