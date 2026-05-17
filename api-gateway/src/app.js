@@ -42,6 +42,16 @@
  *
  *   GET   /api/audit/logs            JWT + Admin       → MS-09 audit-service
  *
+ *   GET   /api/barcodes/:code        JWT + Admin/Op    → MS-08 barcode-service
+ *   POST  /api/barcodes/validate     JWT + Admin/Op    → MS-08 barcode-service
+ *   POST  /api/barcodes/generate     JWT + Admin       → MS-08 barcode-service
+ *
+ *   GET   /api/config                JWT + Admin/Op    → MS-11 config-service
+ *   GET   /api/config/:key           JWT + Admin/Op    → MS-11 config-service
+ *   PUT   /api/config/:key           JWT + Admin       → MS-11 config-service
+ *
+ *   GET   /api/suppliers             JWT               → MS-10 supplier-service (placeholder)
+ *
  *   GET   /api/protected/ping        JWT               → smoke test del gateway
  *
  * Eventos hacia MS-09 (auditoría):
@@ -82,6 +92,9 @@ const { createExportRoutes } = require('./routes/export.routes');
  * @param {string} [options.productServiceUrl]
  * @param {string} [options.inventoryServiceUrl]
  * @param {string} [options.auditServiceUrl]
+ * @param {string} [options.barcodeServiceUrl]
+ * @param {string} [options.configServiceUrl]
+ * @param {string} [options.supplierServiceUrl]
  * @param {Function} [options.fetchImpl=fetch]
  */
 function createApp(options = {}) {
